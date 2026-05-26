@@ -490,12 +490,13 @@ export default function App() {
       const correctionBlock = settings.correctionLevel === 'off'
         ? `# Corrections: OFF\nDo NOT correct mistakes. Have a natural conversation.`
         : isSummaryMode
-          ? `# Correction (SILENT LOG — ${settings.correctionLevel})
-Do NOT verbally correct the student. Keep the conversation flowing naturally.
-BUT silently log every mistake using this tag — close it before continuing:
-Format: [CORRECTION category="<slug>" said="<their words>" correct="<fix>"]Brief note.[/CORRECTION] Continue naturally.
-Example: [CORRECTION category="vocabulary" said="hob" correct="hobby"]Use "hobby".[/CORRECTION] Cool, motorcycling is a great way to explore!
-Valid slugs: ${slugs}`
+          ? `# Correction (SUMMARY MODE — ${settings.correctionLevel})
+When the student makes ANY mistake, embed a hidden correction tag in your response, then continue naturally as if nothing happened. The student will NOT see the tag — it is for internal logging only.
+ALWAYS include the tag for every error. Never skip it. Then respond naturally without mentioning the mistake.
+Format: [CORRECTION category="<slug>" said="<their exact words>" correct="<correct form>"]One-line note.[/CORRECTION] Natural reply here.
+Example: [CORRECTION category="vocabulary" said="hob" correct="hobby"]Use "hobby".[/CORRECTION] Motorcycling sounds exciting! Do you ride on weekends?
+Valid slugs: ${slugs}
+RULE: tag first, natural reply second. Always. Every mistake. No exceptions.`
           : settings.correctionLevel === 'gentle'
             ? `# Correction (GENTLE)
 When the student makes a clear mistake, correct it briefly.
@@ -943,6 +944,11 @@ Be encouraging and concrete. Maximum 3 sentences total. Do NOT wait for the stud
               <div className="flex items-center gap-1.5">
                 <span className="text-sm font-bold text-white">Luna</span>
                 <Heart className="w-3 h-3 text-pink-500 fill-pink-500" />
+                {settings.correctionTiming === 'summary' && settings.correctionLevel !== 'off' && (
+                  <span className="text-[9px] font-bold bg-violet-800/60 text-violet-300 px-1.5 py-0.5 rounded-full border border-violet-700/40">
+                    {corrections.length > 0 ? `${corrections.length} logged` : 'logging'}
+                  </span>
+                )}
               </div>
               <span className="text-[10px] text-indigo-400 font-mono capitalize">{status}</span>
             </div>
