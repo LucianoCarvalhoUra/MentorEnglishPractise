@@ -57,7 +57,7 @@ async function callOpenRouter(systemPrompt: string, messages: LLMMessage[]): Pro
       'Authorization': `Bearer ${OPENROUTER_KEY}`,
       'Content-Type': 'application/json',
       'HTTP-Referer': window.location.origin,
-      'X-Title': 'MentorEnglish – Aria',
+      'X-Title': 'MentorEnglish – Luna',
     },
     body: JSON.stringify({
       model: 'meta-llama/llama-3.1-8b-instruct:free',
@@ -75,8 +75,8 @@ async function callOpenRouter(systemPrompt: string, messages: LLMMessage[]): Pro
 
 async function callGemini(systemPrompt: string, messages: LLMMessage[]): Promise<string> {
   const ai = new GoogleGenerativeAI(GEMINI_KEY!);
-  const chatText = messages.map(m => `${m.role === 'user' ? 'Student' : 'Aria'}: ${m.content}`).join('\n');
-  const finalPrompt = `${systemPrompt}\n\nHistory:\n${chatText}\nAria:`;
+  const chatText = messages.map(m => `${m.role === 'user' ? 'Student' : 'Luna'}: ${m.content}`).join('\n');
+  const finalPrompt = `${systemPrompt}\n\nHistory:\n${chatText}\nLuna:`;
   const MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash-lite', 'gemini-2.0-flash'];
   let lastErr: any;
   for (const modelName of MODELS) {
@@ -142,7 +142,7 @@ function ScoreRing({ score }: { score: number }) {
   );
 }
 
-function AriaAvatar({ status }: { status: 'idle' | 'listening' | 'analyzing' | 'speaking' }) {
+function LunaAvatar({ status }: { status: 'idle' | 'listening' | 'analyzing' | 'speaking' }) {
   const speaking = status === 'speaking';
   const listening = status === 'listening';
   const analyzing = status === 'analyzing';
@@ -264,7 +264,7 @@ interface StudyItem {
 
 interface ChatMessage {
   id: string;
-  sender: 'user' | 'aria';
+  sender: 'user' | 'luna';
   text: string;
   feedback?: Correction;
   positive?: Positive;
@@ -418,7 +418,7 @@ export default function App() {
     }, 60000);
   };
 
-  const parseAriaResponse = (fullText: string) => {
+  const parseLunaResponse = (fullText: string) => {
     const fullRegex = /\[CORRECTION\s+category="([^"]+)"\s+said="([^"]+)"\s+correct="([^"]+)"\]([\s\S]*?)\[\/CORRECTION\]/i;
     // Fallback when AI forgets to close the tag — capture only the first sentence as explanation
     const openRegex = /\[CORRECTION\s+category="([^"]+)"\s+said="([^"]+)"\s+correct="([^"]+)"\]([\s\S]{0,150}?[.!?])/i;
@@ -461,7 +461,7 @@ export default function App() {
     if (!GROQ_KEY && !OPENROUTER_KEY && !GEMINI_KEY) {
       setHistory(prev => [...prev, {
         id: crypto.randomUUID(),
-        sender: 'aria',
+        sender: 'luna',
         text: "API Key missing. Please add VITE_GROQ_API_KEY, VITE_OPENROUTER_API_KEY, or VITE_GEMINI_API_KEY to your .env file.",
         timestamp: new Date().toLocaleTimeString()
       }]);
@@ -510,7 +510,7 @@ Only when genuinely noteworthy. Never combine with CORRECTION in the same turn.`
 
       const systemPrompt = `
 # Personality
-You are Aria, a warm and encouraging ${languageNames[targetLanguage]} language tutor. You celebrate small wins and adapt to the student's level in real time.
+You are Luna, a warm and encouraging ${languageNames[targetLanguage]} language tutor. You celebrate small wins and adapt to the student's level in real time.
 ${focusLine}
 
 # Adaptive level
@@ -540,7 +540,7 @@ ${positiveBlock}
       const groqModel = GROQ_MODELS[settings.modelQuality];
       const responseText = await callLLM(systemPrompt, messages, groqModel);
 
-      const { cleanText, feedback, positive } = parseAriaResponse(responseText);
+      const { cleanText, feedback, positive } = parseLunaResponse(responseText);
 
       if (feedback) {
         setCorrections(prev => [...prev, feedback]);
@@ -563,7 +563,7 @@ ${positiveBlock}
 
       setHistory(prev => [...prev, {
         id: crypto.randomUUID(),
-        sender: 'aria',
+        sender: 'luna',
         text: cleanText || responseText,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }]);
@@ -580,7 +580,7 @@ ${positiveBlock}
       console.error("LLM Error:", error);
       setHistory(prev => [...prev, {
         id: crypto.randomUUID(),
-        sender: 'aria',
+        sender: 'luna',
         text: `Erro na API: ${error.message || 'Não foi possível obter resposta.'}`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }]);
@@ -591,7 +591,7 @@ ${positiveBlock}
   // Prefer female voices by checking common names across Windows, macOS, and Chrome
   const pickVoice = (voices: SpeechSynthesisVoice[], lang: string): SpeechSynthesisVoice | undefined => {
     const langPrefix = lang.split('-')[0];
-    const femaleKeywords = ['zira', 'samantha', 'victoria', 'allison', 'susan', 'aria',
+    const femaleKeywords = ['zira', 'samantha', 'victoria', 'allison', 'susan', 'aria', 'luna',
                             'jenny', 'michelle', 'female', 'woman', 'fiona', 'moira'];
     return (
       voices.find(v => v.lang === lang && femaleKeywords.some(k => v.name.toLowerCase().includes(k))) ||
@@ -662,7 +662,7 @@ ${positiveBlock}
     }
   };
 
-  const interruptAria = () => {
+  const interruptLuna = () => {
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     clearInterval(resumeTimerRef.current);
     isSpeakingRef.current = false;
@@ -687,13 +687,13 @@ ${positiveBlock}
     if (!GROQ_KEY && !OPENROUTER_KEY && !GEMINI_KEY) { resumeListening(); return; }
     setStatus('analyzing');
     const languageNames: Record<string, string> = { 'en-US': 'English', 'es-ES': 'Spanish', 'fr-FR': 'French', 'de-DE': 'German' };
-    const systemPrompt = `You are Aria, a ${languageNames[targetLanguage]} tutor. Say a single short greeting (max 12 words), then ask one simple question. No sub-clauses, no "I'm excited to...", no lists. Example: "Hey! I'm Aria — what's on your mind today?"`;
+    const systemPrompt = `You are Luna, a ${languageNames[targetLanguage]} tutor. Say a single short greeting (max 12 words), then ask one simple question. No sub-clauses, no "I'm excited to...", no lists. Example: "Hey! I'm Luna — what's on your mind today?"`;
 
     try {
       const responseText = await callLLM(systemPrompt, []);
       if (!responseText) { resumeListening(); return; }
       const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      setHistory([{ id: crypto.randomUUID(), sender: 'aria', text: responseText, timestamp }]);
+      setHistory([{ id: crypto.randomUUID(), sender: 'luna', text: responseText, timestamp }]);
       speak(responseText);
     } catch (err: any) {
       console.error('Opening greeting error:', err);
@@ -714,7 +714,7 @@ ${positiveBlock}
       ? `\nIn the previous session the student made these specific mistakes:\n${examples.map(e => `- Said "${e.said}" → correct form: "${e.correct}"`).join('\n')}`
       : '';
 
-    const systemPrompt = `You are Aria, a warm and encouraging ${languageNames[targetLanguage]} language tutor.
+    const systemPrompt = `You are Luna, a warm and encouraging ${languageNames[targetLanguage]} language tutor.
 The student has chosen to do a focused practice session on: ${topic}.${examplesBlock}
 
 Open the session by:
@@ -726,7 +726,7 @@ Be encouraging and concrete. Maximum 3 sentences total. Do NOT wait for the stud
       const responseText = await callLLM(systemPrompt, []);
       if (!responseText) { setStatus('idle'); return; }
       const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      setHistory([{ id: crypto.randomUUID(), sender: 'aria', text: responseText, timestamp }]);
+      setHistory([{ id: crypto.randomUUID(), sender: 'luna', text: responseText, timestamp }]);
       speak(responseText);
     } catch (err: any) {
       console.error('Focus greeting error:', err);
@@ -902,19 +902,19 @@ Be encouraging and concrete. Maximum 3 sentences total. Do NOT wait for the stud
           <div className="flex-none flex items-center gap-3 bg-[#131926] border border-slate-800/60 rounded-2xl px-4 py-2.5 shadow-lg">
             <div className="shrink-0 w-11 h-11 overflow-hidden" style={{ clipPath: 'circle(50%)' }}>
               <div style={{ transform: 'scale(0.46)', transformOrigin: 'top left', width: '96px', height: '96px' }}>
-                <AriaAvatar status={status} />
+                <LunaAvatar status={status} />
               </div>
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="text-sm font-bold text-white">Aria</span>
+                <span className="text-sm font-bold text-white">Luna</span>
                 <Heart className="w-3 h-3 text-pink-500 fill-pink-500" />
               </div>
               <span className="text-[10px] text-indigo-400 font-mono capitalize">{status}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <button
-                onClick={interruptAria}
+                onClick={interruptLuna}
                 disabled={status !== 'speaking'}
                 title="Interrupt"
                 className="p-2 rounded-xl bg-amber-600/70 hover:bg-amber-600 disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all"
@@ -942,10 +942,10 @@ Be encouraging and concrete. Maximum 3 sentences total. Do NOT wait for the stud
           <div className="flex-none bg-[#131926] rounded-3xl border border-slate-800/80 p-6 shadow-2xl flex flex-col items-center relative">
             <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-32 h-32 bg-pink-600/10 blur-3xl rounded-full pointer-events-none" />
             <div className="relative mb-3">
-              <AriaAvatar status={status} />
+              <LunaAvatar status={status} />
             </div>
             <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-1.5">
-              Aria <Heart className="w-3.5 h-3.5 text-pink-500 fill-pink-500" />
+              Luna <Heart className="w-3.5 h-3.5 text-pink-500 fill-pink-500" />
             </h2>
             <p className="text-xs text-slate-500 mt-0.5 mb-5 capitalize">
               <span className="text-indigo-400 font-mono">{status}</span>
@@ -1020,7 +1020,7 @@ Be encouraging and concrete. Maximum 3 sentences total. Do NOT wait for the stud
                       onClick={() => startFocusedCall(item.category, item.examples)}
                       className="w-full py-1.5 px-3 rounded-lg text-xs font-semibold bg-indigo-600/80 hover:bg-indigo-600 text-white transition-all"
                     >
-                      Practice {item.category.replace(/_/g, ' ')} with Aria
+                      Practice {item.category.replace(/_/g, ' ')} with Luna
                     </button>
                   </div>
                 ))}
@@ -1057,9 +1057,9 @@ Be encouraging and concrete. Maximum 3 sentences total. Do NOT wait for the stud
 
                   {/* Avatar */}
                   <div className="shrink-0 w-8 h-8 mt-0.5 rounded-full overflow-hidden border border-slate-700/50" style={{ clipPath: 'circle(50%)' }}>
-                    {msg.sender === 'aria' ? (
+                    {msg.sender === 'luna' ? (
                       <div style={{ transform: 'scale(0.333)', transformOrigin: 'top left', width: '96px', height: '96px' }}>
-                        <AriaAvatar status="idle" />
+                        <LunaAvatar status="idle" />
                       </div>
                     ) : (
                       <div className="w-full h-full bg-indigo-700 flex items-center justify-center">
@@ -1087,7 +1087,7 @@ Be encouraging and concrete. Maximum 3 sentences total. Do NOT wait for the stud
                         <button
                           onClick={() => replaySpeak(msg.text)}
                           className={`shrink-0 mt-0.5 p-1 rounded-lg transition-all ${
-                            msg.sender === 'aria'
+                            msg.sender === 'luna'
                               ? 'text-indigo-400/60 hover:text-indigo-300 hover:bg-indigo-900/40'
                               : 'text-slate-500 hover:text-slate-300 hover:bg-slate-700/40'
                           }`}
