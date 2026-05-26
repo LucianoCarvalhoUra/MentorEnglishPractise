@@ -420,7 +420,8 @@ export default function App() {
 
   const parseAriaResponse = (fullText: string) => {
     const fullRegex = /\[CORRECTION\s+category="([^"]+)"\s+said="([^"]+)"\s+correct="([^"]+)"\]([\s\S]*?)\[\/CORRECTION\]/i;
-    const openRegex = /\[CORRECTION\s+category="([^"]+)"\s+said="([^"]+)"\s+correct="([^"]+)"\]([^\[]*)/i;
+    // Fallback when AI forgets to close the tag — capture only the first sentence as explanation
+    const openRegex = /\[CORRECTION\s+category="([^"]+)"\s+said="([^"]+)"\s+correct="([^"]+)"\]([\s\S]{0,150}?[.!?])/i;
     const match = fullText.match(fullRegex) ?? fullText.match(openRegex);
 
     let cleanText = fullText;
@@ -434,7 +435,7 @@ export default function App() {
     }
 
     const posFull = /\[POSITIVE\s+category="([^"]+)"\s+example="([^"]+)"\]([\s\S]*?)\[\/POSITIVE\]/i;
-    const posOpen = /\[POSITIVE\s+category="([^"]+)"\s+example="([^"]+)"\]([^\[]*)/i;
+    const posOpen = /\[POSITIVE\s+category="([^"]+)"\s+example="([^"]+)"\]([\s\S]{0,150}?[.!?])/i;
     const posMatch = cleanText.match(posFull) ?? cleanText.match(posOpen);
     if (posMatch) {
       const [posTag, category, example, explanation] = posMatch;
@@ -486,11 +487,25 @@ export default function App() {
       const correctionBlock = settings.correctionLevel === 'off'
         ? `# Corrections: OFF\nDo NOT correct mistakes. Have a natural conversation.`
         : settings.correctionLevel === 'gentle'
-          ? `# Correction (GENTLE)\nWhen the student makes a clear mistake, note it briefly then move on.\nEmit exactly: [CORRECTION category="<slug>" said="<their words>" correct="<fix>"]≤6 words.[/CORRECTION]\nValid slugs: ${slugs}\nDo not ask them to repeat. Keep the conversation flowing.`
-          : `# Correction (STRICT)\nCorrect EVERY grammar, vocabulary, or word-order mistake.\n1. One warm phrase ("Almost!" / "Close!").\n2. Emit: [CORRECTION category="<slug>" said="<their exact words>" correct="<correct form>"]One sentence: the rule.[/CORRECTION]\n   Valid slugs: ${slugs}\n3. Say the correct form aloud. Ask them to repeat it.`;
+          ? `# Correction (GENTLE)
+When the student makes a clear mistake, correct it briefly.
+ALWAYS close the tag with [/CORRECTION] before continuing your reply.
+Format: [CORRECTION category="<slug>" said="<their words>" correct="<fix>"]2–4 words.[/CORRECTION] Your reply continues here.
+Example: [CORRECTION category="vocabulary" said="hob" correct="hobby"]Say "hobby".[/CORRECTION] That sounds like a fun hobby!
+Valid slugs: ${slugs}`
+          : `# Correction (STRICT)
+Correct EVERY grammar, vocabulary, or word-order mistake.
+ALWAYS close the tag with [/CORRECTION] before continuing your reply.
+Format: [CORRECTION category="<slug>" said="<their exact words>" correct="<correct form>"]One sentence explaining the rule.[/CORRECTION] Your reply continues here.
+Example: [CORRECTION category="vocabulary" said="hob" correct="hobby"]"Hob" isn't a word — the correct word is "hobby".[/CORRECTION] Motorcycling sounds exciting! Do you ride often?
+Valid slugs: ${slugs}`;
 
       const positiveBlock = settings.correctionLevel !== 'off'
-        ? `# Positive reinforcement (OPTIONAL)\nWhen the student uses something correctly that they struggled with before:\n[POSITIVE category="<slug>" example="<their words>"]One short phrase praising the skill.[/POSITIVE]\nOnly when genuinely noteworthy. Never combine with CORRECTION in the same turn.`
+        ? `# Positive reinforcement (OPTIONAL)
+When the student uses something correctly that they struggled with before:
+Format: [POSITIVE category="<slug>" example="<their words>"]One short praise phrase.[/POSITIVE] Your reply continues here.
+Example: [POSITIVE category="present_perfect" example="I have been practicing"]Great use of present perfect![/POSITIVE] That's real progress!
+Only when genuinely noteworthy. Never combine with CORRECTION in the same turn.`
         : '';
 
       const systemPrompt = `
