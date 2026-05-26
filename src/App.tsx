@@ -104,10 +104,11 @@ async function callLLM(systemPrompt: string, messages: LLMMessage[], groqModel =
 
 interface AppSettings {
   correctionLevel: 'off' | 'gentle' | 'strict';
+  correctionTiming: 'realtime' | 'summary';
   speechRate: 'slow' | 'normal' | 'fast';
   modelQuality: 'fast' | 'quality';
 }
-const DEFAULT_SETTINGS: AppSettings = { correctionLevel: 'strict', speechRate: 'normal', modelQuality: 'fast' };
+const DEFAULT_SETTINGS: AppSettings = { correctionLevel: 'strict', correctionTiming: 'realtime', speechRate: 'normal', modelQuality: 'fast' };
 const SETTINGS_KEY = 'me_settings';
 const SPEECH_RATES: Record<AppSettings['speechRate'], number> = { slow: 0.75, normal: 0.95, fast: 1.2 };
 const GROQ_MODELS: Record<AppSettings['modelQuality'], string> = {
@@ -484,16 +485,25 @@ export default function App() {
 
       const slugs = 'past_simple · present_simple · present_continuous · present_perfect · future · conditionals · modals · articles · prepositions · pronunciation · vocabulary · word_order · plurals · phrasal_verbs · questions · negations';
 
+      const isSummaryMode = settings.correctionTiming === 'summary';
+
       const correctionBlock = settings.correctionLevel === 'off'
         ? `# Corrections: OFF\nDo NOT correct mistakes. Have a natural conversation.`
-        : settings.correctionLevel === 'gentle'
-          ? `# Correction (GENTLE)
+        : isSummaryMode
+          ? `# Correction (SILENT LOG — ${settings.correctionLevel})
+Do NOT verbally correct the student. Keep the conversation flowing naturally.
+BUT silently log every mistake using this tag — close it before continuing:
+Format: [CORRECTION category="<slug>" said="<their words>" correct="<fix>"]Brief note.[/CORRECTION] Continue naturally.
+Example: [CORRECTION category="vocabulary" said="hob" correct="hobby"]Use "hobby".[/CORRECTION] Cool, motorcycling is a great way to explore!
+Valid slugs: ${slugs}`
+          : settings.correctionLevel === 'gentle'
+            ? `# Correction (GENTLE)
 When the student makes a clear mistake, correct it briefly.
 ALWAYS close the tag with [/CORRECTION] before continuing your reply.
 Format: [CORRECTION category="<slug>" said="<their words>" correct="<fix>"]2–4 words.[/CORRECTION] Your reply continues here.
 Example: [CORRECTION category="vocabulary" said="hob" correct="hobby"]Say "hobby".[/CORRECTION] That sounds like a fun hobby!
 Valid slugs: ${slugs}`
-          : `# Correction (STRICT)
+            : `# Correction (STRICT)
 Correct EVERY grammar, vocabulary, or word-order mistake.
 ALWAYS close the tag with [/CORRECTION] before continuing your reply.
 Format: [CORRECTION category="<slug>" said="<their exact words>" correct="<correct form>"]One sentence explaining the rule.[/CORRECTION] Your reply continues here.
@@ -546,8 +556,9 @@ ${positiveBlock}
         setCorrections(prev => [...prev, feedback]);
       }
 
-      // Attach both feedback and positive inside the last user bubble
-      if (feedback || positive) {
+      // In realtime mode: show feedback/positive inside the user bubble
+      // In summary mode: collect silently, don't show in chat
+      if (!isSummaryMode && (feedback || positive)) {
         setHistory(prev => {
           for (let i = prev.length - 1; i >= 0; i--) {
             if (prev[i].sender === 'user') {
@@ -571,7 +582,8 @@ ${positiveBlock}
       setCurrentTranscript('');
 
       let spokenText = cleanText || responseText;
-      if (feedback) {
+      // In realtime mode, speak the correction aloud; in summary mode stay silent
+      if (!isSummaryMode && feedback) {
         spokenText += ` — Quick correction: instead of "${feedback.said}", you should say "${feedback.correct}". ${feedback.explanation}`;
       }
       speak(spokenText);
@@ -842,6 +854,28 @@ Be encouraging and concrete. Maximum 3 sentences total. Do NOT wait for the stud
                 ))}
               </div>
             </div>
+
+            {/* Correction timing */}
+            {settings.correctionLevel !== 'off' && (
+              <div>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Correction timing</p>
+                <div className="flex gap-2">
+                  {(['realtime', 'summary'] as const).map(t => (
+                    <button key={t} onClick={() => setSettings(s => ({ ...s, correctionTiming: t }))}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        settings.correctionTiming === t ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                      }`}>
+                      {t === 'realtime' ? 'Real-time' : 'End summary'}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-slate-600 mt-1">
+                  {settings.correctionTiming === 'realtime'
+                    ? 'Corrections appear inside each message bubble as you speak.'
+                    : 'Luna converses naturally — corrections shown only in the session summary.'}
+                </p>
+              </div>
+            )}
 
             {/* Speech speed */}
             <div>
