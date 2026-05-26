@@ -57,7 +57,7 @@ async function callOpenRouter(systemPrompt: string, messages: LLMMessage[]): Pro
       'Authorization': `Bearer ${OPENROUTER_KEY}`,
       'Content-Type': 'application/json',
       'HTTP-Referer': window.location.origin,
-      'X-Title': 'MentorEnglish – Luna',
+      'X-Title': 'MentorStudy – Luna',
     },
     body: JSON.stringify({
       model: 'meta-llama/llama-3.1-8b-instruct:free',
@@ -791,7 +791,7 @@ Be encouraging and concrete. Maximum 3 sentences total. Do NOT wait for the stud
       <header className="flex-none flex items-center justify-between px-4 md:px-6 py-3 border-b border-slate-800/50 bg-[#0d1220]/95 backdrop-blur">
         <div className="flex items-center gap-2">
           <Sparkles className="text-pink-400 w-4 h-4" />
-          <span className="text-xs font-bold tracking-widest text-slate-400 uppercase">MentorEnglish</span>
+          <span className="text-xs font-bold tracking-widest text-slate-400 uppercase">MentorStudy</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60">
