@@ -319,26 +319,10 @@ export default function App() {
   useEffect(() => { focusExamplesRef.current = focusExamples; }, [focusExamples]);
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
 
-  // Build study summary + score when call ends
+  // Score/summary are now built synchronously inside endCall() via refs.
+  // This effect only handles the edge case of no history (page load / idle).
   useEffect(() => {
-    if (!isCallActive && historyRef.current.length > 0) {
-      const userMsgs = historyRef.current.filter(m => m.sender === 'user').length;
-      const errCount = correctionsRef.current.length;
-
-      if (errCount > 0) {
-        const grouped = correctionsRef.current.reduce<Record<string, StudyItem>>((acc, c) => {
-          if (!acc[c.category]) acc[c.category] = { category: c.category, examples: [] };
-          acc[c.category].examples.push({ said: c.said, correct: c.correct });
-          return acc;
-        }, {});
-        setStudySummary(Object.values(grouped));
-      }
-
-      const score = Math.max(0, Math.round((1 - Math.min(1, errCount / Math.max(1, userMsgs))) * 100));
-      setSessionScore(score);
-    } else if (!isCallActive) {
-      setSessionScore(null);
-    }
+    if (!isCallActive && historyRef.current.length === 0) setSessionScore(null);
   }, [isCallActive]);
 
   // Preload voices — getVoices() returns [] on the first call until voiceschanged fires
@@ -490,13 +474,11 @@ export default function App() {
       const correctionBlock = settings.correctionLevel === 'off'
         ? `# Corrections: OFF\nDo NOT correct mistakes. Have a natural conversation.`
         : isSummaryMode
-          ? `# Correction (SUMMARY MODE — ${settings.correctionLevel})
-When the student makes ANY mistake, embed a hidden correction tag in your response, then continue naturally as if nothing happened. The student will NOT see the tag — it is for internal logging only.
-ALWAYS include the tag for every error. Never skip it. Then respond naturally without mentioning the mistake.
-Format: [CORRECTION category="<slug>" said="<their exact words>" correct="<correct form>"]One-line note.[/CORRECTION] Natural reply here.
-Example: [CORRECTION category="vocabulary" said="hob" correct="hobby"]Use "hobby".[/CORRECTION] Motorcycling sounds exciting! Do you ride on weekends?
-Valid slugs: ${slugs}
-RULE: tag first, natural reply second. Always. Every mistake. No exceptions.`
+          ? `# Correction (SILENT LOG)
+For EVERY mistake: insert the tag silently, then reply naturally — never mention the error aloud.
+[CORRECTION category="slug" said="their words" correct="fix"]Note.[/CORRECTION] Natural reply.
+Example: [CORRECTION category="vocabulary" said="hob" correct="hobby"]→hobby[/CORRECTION] Motorcycling is cool! Do you ride often?
+Slugs: ${slugs}`
           : settings.correctionLevel === 'gentle'
             ? `# Correction (GENTLE)
 When the student makes a clear mistake, correct it briefly.
@@ -777,6 +759,24 @@ Be encouraging and concrete. Maximum 3 sentences total. Do NOT wait for the stud
   };
 
   const endCall = () => {
+    // Build summary synchronously from refs before any state is cleared
+    const snap = correctionsRef.current;
+    const hist = historyRef.current;
+    if (hist.length > 0) {
+      const userMsgs = hist.filter(m => m.sender === 'user').length;
+      const errCount = snap.length;
+      if (errCount > 0) {
+        const grouped = snap.reduce<Record<string, StudyItem>>((acc, c) => {
+          if (!acc[c.category]) acc[c.category] = { category: c.category, examples: [] };
+          acc[c.category].examples.push({ said: c.said, correct: c.correct });
+          return acc;
+        }, {});
+        setStudySummary(Object.values(grouped));
+      }
+      const score = Math.max(0, Math.round((1 - Math.min(1, errCount / Math.max(1, userMsgs))) * 100));
+      setSessionScore(score);
+    }
+
     playBeep('stop');
     setIsCallActive(false);
     isCallActiveRef.current = false;
