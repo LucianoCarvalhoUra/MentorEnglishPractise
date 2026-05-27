@@ -364,7 +364,8 @@ export default function App() {
     };
 
     recognition.onerror = (e: any) => {
-      if (e.error !== 'no-speech' && e.error !== 'aborted') {
+      // 'no-speech', 'aborted', and 'network' are non-fatal transient events
+      if (e.error !== 'no-speech' && e.error !== 'aborted' && e.error !== 'network') {
         console.error('Speech recognition error:', e.error);
       }
     };
@@ -476,21 +477,22 @@ export default function App() {
         : isSummaryMode
           ? `# Correction (SILENT LOG)
 For EVERY mistake: insert the tag silently, then reply naturally — never mention the error aloud.
-[CORRECTION category="slug" said="their words" correct="fix"]Note.[/CORRECTION] Natural reply.
-Example: [CORRECTION category="vocabulary" said="hob" correct="hobby"]→hobby[/CORRECTION] Motorcycling is cool! Do you ride often?
+IMPORTANT: correct="..." must be the SHORT correct word/phrase only (max 4 words), NOT an explanation.
+[CORRECTION category="slug" said="their words" correct="correct word"]Brief note.[/CORRECTION] Natural reply.
+Example: [CORRECTION category="vocabulary" said="hob" correct="hobby"]hobby, not hob[/CORRECTION] Motorcycling is cool!
 Slugs: ${slugs}`
           : settings.correctionLevel === 'gentle'
             ? `# Correction (GENTLE)
 When the student makes a clear mistake, correct it briefly.
-ALWAYS close the tag with [/CORRECTION] before continuing your reply.
-Format: [CORRECTION category="<slug>" said="<their words>" correct="<fix>"]2–4 words.[/CORRECTION] Your reply continues here.
-Example: [CORRECTION category="vocabulary" said="hob" correct="hobby"]Say "hobby".[/CORRECTION] That sounds like a fun hobby!
+IMPORTANT: correct="..." must be the SHORT correct word/phrase only (max 4 words), NOT an explanation.
+[CORRECTION category="<slug>" said="<their words>" correct="<correct word/phrase>"]2–4 words.[/CORRECTION] Reply here.
+Example: [CORRECTION category="vocabulary" said="hob" correct="hobby"]Say "hobby".[/CORRECTION] That sounds fun!
 Valid slugs: ${slugs}`
             : `# Correction (STRICT)
 Correct EVERY grammar, vocabulary, or word-order mistake.
-ALWAYS close the tag with [/CORRECTION] before continuing your reply.
-Format: [CORRECTION category="<slug>" said="<their exact words>" correct="<correct form>"]One sentence explaining the rule.[/CORRECTION] Your reply continues here.
-Example: [CORRECTION category="vocabulary" said="hob" correct="hobby"]"Hob" isn't a word — the correct word is "hobby".[/CORRECTION] Motorcycling sounds exciting! Do you ride often?
+IMPORTANT: correct="..." must be the SHORT correct word/phrase only (max 4 words), NOT an explanation.
+[CORRECTION category="<slug>" said="<exact words>" correct="<correct word/phrase>"]One sentence rule.[/CORRECTION] Reply here.
+Example: [CORRECTION category="vocabulary" said="hob" correct="hobby"]"Hob" isn't a word — say "hobby".[/CORRECTION] Motorcycling sounds exciting!
 Valid slugs: ${slugs}`;
 
       const positiveBlock = settings.correctionLevel !== 'off'
@@ -1034,36 +1036,49 @@ Be encouraging and concrete. Maximum 3 sentences total. Do NOT wait for the stud
               </div>
             )}
 
-            {/* Areas to improve */}
+            {/* Areas to improve — compact grid */}
             {studySummary.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <BookOpen className="w-3.5 h-3.5 text-amber-400" />
                   <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">Areas to Improve</span>
+                  <span className="ml-auto text-[10px] text-slate-600">
+                    {studySummary.reduce((s, i) => s + i.examples.length, 0)} corrections · {studySummary.length} areas
+                  </span>
                 </div>
-                {studySummary.map((item) => (
-                  <div key={item.category} className="bg-slate-800/50 rounded-xl p-3">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs font-bold text-amber-300 capitalize">{item.category.replace(/_/g, ' ')}</span>
-                      <span className="text-[10px] text-slate-500">{item.examples.length} correction{item.examples.length > 1 ? 's' : ''}</span>
-                    </div>
-                    <div className="space-y-0.5 mb-2.5">
-                      {item.examples.map((ex, i) => (
-                        <p key={i} className="text-[11px] text-slate-400">
-                          <span className="text-rose-400 line-through mr-1">"{ex.said}"</span>
-                          <span className="text-slate-600 mr-1">→</span>
-                          <span className="text-emerald-400">"{ex.correct}"</span>
-                        </p>
-                      ))}
-                    </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {studySummary.map((item) => (
                     <button
+                      key={item.category}
                       onClick={() => startFocusedCall(item.category, item.examples)}
-                      className="w-full py-1.5 px-3 rounded-lg text-xs font-semibold bg-indigo-600/80 hover:bg-indigo-600 text-white transition-all"
+                      className="bg-slate-800/50 hover:bg-slate-700/60 border border-transparent hover:border-indigo-700/30 rounded-xl p-3 text-left transition-all group"
                     >
-                      Practice {item.category.replace(/_/g, ' ')} with Luna
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-bold text-amber-300 capitalize leading-tight">
+                          {item.category.replace(/_/g, ' ')}
+                        </span>
+                        <span className="shrink-0 text-[9px] font-bold bg-amber-900/30 text-amber-500 px-1.5 py-0.5 rounded-full ml-1">
+                          {item.examples.length}×
+                        </span>
+                      </div>
+                      <div className="space-y-0.5 mb-2">
+                        {item.examples.slice(0, 2).map((ex, i) => (
+                          <p key={i} className="text-[10px] text-slate-500 truncate">
+                            <span className="text-rose-400/80 line-through">"{ex.said}"</span>
+                            <span className="text-slate-600 mx-0.5">→</span>
+                            <span className="text-emerald-400/80">"{ex.correct}"</span>
+                          </p>
+                        ))}
+                        {item.examples.length > 2 && (
+                          <p className="text-[9px] text-slate-600">+{item.examples.length - 2} more</p>
+                        )}
+                      </div>
+                      <p className="text-[9px] font-semibold text-indigo-500 group-hover:text-indigo-400 transition-colors">
+                        Practice →
+                      </p>
                     </button>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </div>
