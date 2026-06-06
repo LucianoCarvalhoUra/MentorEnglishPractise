@@ -103,14 +103,14 @@ async function callLLM(systemPrompt: string, messages: LLMMessage[], groqModel =
 }
 
 const THEMES = {
-  midnight: { name: 'Midnight', swatch: '#4f7eff', main: '#060d1e', panelGlass: 'rgba(6,13,30,0.97)',  card: '#0d1832', cardGradient: 'linear-gradient(to bottom,#1a2e52,#0d1832)', bubble: '#0e1c3c', report: '#0a1428' },
-  carbon:   { name: 'Carbon',   swatch: '#94a3b8', main: '#0b0c0f', panelGlass: 'rgba(11,12,15,0.97)', card: '#14161e', cardGradient: 'linear-gradient(to bottom,#20232e,#14161e)', bubble: '#16182a', report: '#101218' },
-  forest:   { name: 'Forest',   swatch: '#22c55e', main: '#040e08', panelGlass: 'rgba(4,14,8,0.97)',   card: '#081808', cardGradient: 'linear-gradient(to bottom,#0e2e14,#081808)', bubble: '#091a0a', report: '#061208' },
-  violet:   { name: 'Violet',   swatch: '#a855f7', main: '#07041c', panelGlass: 'rgba(7,4,28,0.97)',   card: '#0f082c', cardGradient: 'linear-gradient(to bottom,#1c0e48,#0f082c)', bubble: '#120a30', report: '#0a0620' },
-  ember:    { name: 'Ember',    swatch: '#f97316', main: '#130500', panelGlass: 'rgba(19,5,0,0.97)',   card: '#220c04', cardGradient: 'linear-gradient(to bottom,#3c1606,#220c04)', bubble: '#1e0a04', report: '#180604' },
-  ocean:    { name: 'Ocean',    swatch: '#06b6d4', main: '#020c18', panelGlass: 'rgba(2,12,24,0.97)',  card: '#061a2c', cardGradient: 'linear-gradient(to bottom,#082e48,#061a2c)', bubble: '#071c32', report: '#041422' },
-  rose:     { name: 'Rose',     swatch: '#f43f5e', main: '#130408', panelGlass: 'rgba(19,4,8,0.97)',   card: '#220812', cardGradient: 'linear-gradient(to bottom,#3a0e1e,#220812)', bubble: '#1e080e', report: '#160608' },
-  amber:    { name: 'Amber',    swatch: '#f59e0b', main: '#110800', panelGlass: 'rgba(17,8,0,0.97)',   card: '#1e1200', cardGradient: 'linear-gradient(to bottom,#321c00,#1e1200)', bubble: '#1c1000', report: '#160c00' },
+  midnight: { name: 'Midnight', swatch: '#4f7eff', main: '#09162c', panelGlass: 'rgba(9,22,44,0.97)',   card: '#0e1e3a', bubble: '#122040', report: '#0c1830' },
+  carbon:   { name: 'Carbon',   swatch: '#94a3b8', main: '#0e0f14', panelGlass: 'rgba(14,15,20,0.97)',  card: '#181a22', bubble: '#1a1c26', report: '#131518' },
+  forest:   { name: 'Forest',   swatch: '#22c55e', main: '#0a1c0e', panelGlass: 'rgba(10,28,14,0.97)',  card: '#102010', bubble: '#122214', report: '#0c1c10' },
+  violet:   { name: 'Violet',   swatch: '#a855f7', main: '#0e0830', panelGlass: 'rgba(14,8,48,0.97)',   card: '#160a3c', bubble: '#180c40', report: '#120838' },
+  ember:    { name: 'Ember',    swatch: '#f97316', main: '#1c0a00', panelGlass: 'rgba(28,10,0,0.97)',   card: '#2a1000', bubble: '#281000', report: '#1e0c00' },
+  ocean:    { name: 'Ocean',    swatch: '#06b6d4', main: '#041428', panelGlass: 'rgba(4,20,40,0.97)',   card: '#081e34', bubble: '#0a2038', report: '#061828' },
+  rose:     { name: 'Rose',     swatch: '#f43f5e', main: '#1e0810', panelGlass: 'rgba(30,8,16,0.97)',   card: '#280c16', bubble: '#241018', report: '#1c0c14' },
+  amber:    { name: 'Amber',    swatch: '#f59e0b', main: '#1a1000', panelGlass: 'rgba(26,16,0,0.97)',   card: '#261600', bubble: '#221400', report: '#1c1000' },
 } as const;
 type ThemeName = keyof typeof THEMES;
 
@@ -1235,21 +1235,19 @@ Stats: ${userMsgs} student messages in this session.`;
               </div>
             </div>
           ) : (
-            <div className="rounded-3xl border border-slate-800/80 p-6 shadow-2xl flex flex-col items-center relative overflow-hidden" style={{ background: THEMES[settings.theme].cardGradient }}>
-              <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-36 h-36 bg-pink-600/10 blur-3xl rounded-full pointer-events-none" />
-              <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 w-28 h-28 bg-indigo-600/10 blur-3xl rounded-full pointer-events-none" />
-              <div className="relative mb-4">
+            <div className="rounded-2xl border border-slate-800/80 px-5 pt-5 pb-5 shadow-xl flex flex-col items-center" style={{ background: 'var(--t-card)' }}>
+              <div className="relative mb-3">
                 <LunaAvatar status={status} />
                 <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2" style={{ borderColor: THEMES[settings.theme].card }} />
               </div>
               <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-1.5 mb-0.5">
                 Luna <Heart className="w-3.5 h-3.5 text-pink-500 fill-pink-500" />
               </h2>
-              <p className="text-xs text-slate-500 mb-5 capitalize">
+              <p className="text-xs text-slate-500 mb-4 capitalize">
                 <span className="text-indigo-400 font-mono">{status}</span>
               </p>
               {!isSpeechSupported && (
-                <p className="text-xs text-rose-400 mb-4 text-center">Speech recognition requires Chrome or Edge.</p>
+                <p className="text-xs text-rose-400 mb-3 text-center">Speech recognition requires Chrome or Edge.</p>
               )}
               <button
                 onClick={startCall}
