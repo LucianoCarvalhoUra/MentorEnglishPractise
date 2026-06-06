@@ -292,7 +292,11 @@ export default function App() {
   const [history, setHistory] = useState<ChatMessage[]>([]);
   const [targetLanguage, setTargetLanguage] = useState<'en-US' | 'es-ES' | 'fr-FR' | 'de-DE'>('en-US');
   const [settings, setSettings] = useState<AppSettings>(() => {
-    try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') }; }
+    try {
+      const saved = { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') };
+      if (!(saved.theme in THEMES)) saved.theme = DEFAULT_SETTINGS.theme;
+      return saved as AppSettings;
+    }
     catch { return DEFAULT_SETTINGS; }
   });
   const [showSettings, setShowSettings] = useState(false);
