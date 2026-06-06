@@ -103,12 +103,12 @@ async function callLLM(systemPrompt: string, messages: LLMMessage[], groqModel =
 }
 
 const THEMES = {
-  midnight:  { name: 'Midnight',  swatch: '#171d2e', main: '#0b0f19', panelGlass: 'rgba(13,18,32,0.95)',   card: '#131926', cardGradient: 'linear-gradient(to bottom,#171d2e,#131926)', bubble: '#141d2f', report: '#0f1a2e' },
-  carbon:    { name: 'Carbon',    swatch: '#222222', main: '#0c0c0c', panelGlass: 'rgba(15,15,15,0.95)',   card: '#1a1a1a', cardGradient: 'linear-gradient(to bottom,#222222,#1a1a1a)', bubble: '#181818', report: '#141414' },
-  forest:    { name: 'Forest',    swatch: '#162118', main: '#080f0a', panelGlass: 'rgba(9,15,11,0.95)',    card: '#111c14', cardGradient: 'linear-gradient(to bottom,#162118,#111c14)', bubble: '#121d14', report: '#0a1710' },
-  amethyst:  { name: 'Amethyst', swatch: '#1d1b30', main: '#0d0b18', panelGlass: 'rgba(14,12,22,0.95)',   card: '#181626', cardGradient: 'linear-gradient(to bottom,#1d1b30,#181626)', bubble: '#151228', report: '#100e1c' },
-  onyx:      { name: 'Onyx',     swatch: '#1e1b16', main: '#100f0d', panelGlass: 'rgba(16,14,12,0.95)',   card: '#1a1815', cardGradient: 'linear-gradient(to bottom,#201d18,#1a1815)', bubble: '#181613', report: '#141210' },
-  abyss:     { name: 'Abyss',    swatch: '#112230', main: '#060d14', panelGlass: 'rgba(7,14,21,0.95)',    card: '#0e1e29', cardGradient: 'linear-gradient(to bottom,#112230,#0e1e29)', bubble: '#0d1c28', report: '#081420' },
+  midnight: { name: 'Midnight', swatch: '#4f7eff', main: '#0b0f1c', panelGlass: 'rgba(11,15,28,0.96)', card: '#131926', cardGradient: 'linear-gradient(to bottom,#1c2640,#131926)', bubble: '#141d30', report: '#0f1828' },
+  carbon:   { name: 'Carbon',   swatch: '#888888', main: '#111111', panelGlass: 'rgba(17,17,17,0.96)', card: '#1c1c1c', cardGradient: 'linear-gradient(to bottom,#2a2a2a,#1c1c1c)', bubble: '#191919', report: '#151515' },
+  forest:   { name: 'Forest',   swatch: '#22c55e', main: '#071209', panelGlass: 'rgba(7,18,9,0.96)',   card: '#0f1e12', cardGradient: 'linear-gradient(to bottom,#173322,#0f1e12)', bubble: '#0d1c10', report: '#091610' },
+  violet:   { name: 'Violet',   swatch: '#a855f7', main: '#0e0a1c', panelGlass: 'rgba(14,10,28,0.96)', card: '#19122e', cardGradient: 'linear-gradient(to bottom,#281848,#19122e)', bubble: '#180f2e', report: '#120b22' },
+  ember:    { name: 'Ember',    swatch: '#f97316', main: '#150807', panelGlass: 'rgba(21,8,7,0.96)',   card: '#241210', cardGradient: 'linear-gradient(to bottom,#3e1a12,#241210)', bubble: '#200e0c', report: '#190c0a' },
+  ocean:    { name: 'Ocean',    swatch: '#38bdf8', main: '#060f1a', panelGlass: 'rgba(6,15,26,0.96)',  card: '#0d1e30', cardGradient: 'linear-gradient(to bottom,#0f2e48,#0d1e30)', bubble: '#0b1c2e', report: '#081524' },
 } as const;
 type ThemeName = keyof typeof THEMES;
 
@@ -1327,6 +1327,26 @@ Stats: ${userMsgs} student messages in this session.`;
               )}
             </div>
           )}
+
+          {/* ── Quick theme switcher ── */}
+          <div className="mt-auto pt-3 border-t border-slate-800/30 flex items-center gap-3">
+            <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider shrink-0">Theme</span>
+            <div className="flex gap-1.5">
+              {(Object.keys(THEMES) as ThemeName[]).map(t => (
+                <button
+                  key={t}
+                  onClick={() => setSettings(s => ({ ...s, theme: t }))}
+                  title={THEMES[t].name}
+                  className={`w-5 h-5 rounded-full border-2 transition-all ${
+                    settings.theme === t
+                      ? 'border-white scale-125 shadow-md'
+                      : 'border-transparent hover:scale-110 hover:border-slate-400'
+                  }`}
+                  style={{ background: THEMES[t].swatch }}
+                />
+              ))}
+            </div>
+          </div>
         </aside>
 
         {/* ── Right panel: Dialogue ── */}
