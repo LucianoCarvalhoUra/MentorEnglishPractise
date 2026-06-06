@@ -103,12 +103,14 @@ async function callLLM(systemPrompt: string, messages: LLMMessage[], groqModel =
 }
 
 const THEMES = {
-  midnight: { name: 'Midnight', swatch: '#4f7eff', main: '#0b0f1c', panelGlass: 'rgba(11,15,28,0.96)', card: '#131926', cardGradient: 'linear-gradient(to bottom,#1c2640,#131926)', bubble: '#141d30', report: '#0f1828' },
-  carbon:   { name: 'Carbon',   swatch: '#888888', main: '#111111', panelGlass: 'rgba(17,17,17,0.96)', card: '#1c1c1c', cardGradient: 'linear-gradient(to bottom,#2a2a2a,#1c1c1c)', bubble: '#191919', report: '#151515' },
-  forest:   { name: 'Forest',   swatch: '#22c55e', main: '#071209', panelGlass: 'rgba(7,18,9,0.96)',   card: '#0f1e12', cardGradient: 'linear-gradient(to bottom,#173322,#0f1e12)', bubble: '#0d1c10', report: '#091610' },
-  violet:   { name: 'Violet',   swatch: '#a855f7', main: '#0e0a1c', panelGlass: 'rgba(14,10,28,0.96)', card: '#19122e', cardGradient: 'linear-gradient(to bottom,#281848,#19122e)', bubble: '#180f2e', report: '#120b22' },
-  ember:    { name: 'Ember',    swatch: '#f97316', main: '#150807', panelGlass: 'rgba(21,8,7,0.96)',   card: '#241210', cardGradient: 'linear-gradient(to bottom,#3e1a12,#241210)', bubble: '#200e0c', report: '#190c0a' },
-  ocean:    { name: 'Ocean',    swatch: '#38bdf8', main: '#060f1a', panelGlass: 'rgba(6,15,26,0.96)',  card: '#0d1e30', cardGradient: 'linear-gradient(to bottom,#0f2e48,#0d1e30)', bubble: '#0b1c2e', report: '#081524' },
+  midnight: { name: 'Midnight', swatch: '#4f7eff', main: '#060d1e', panelGlass: 'rgba(6,13,30,0.97)',  card: '#0d1832', cardGradient: 'linear-gradient(to bottom,#1a2e52,#0d1832)', bubble: '#0e1c3c', report: '#0a1428' },
+  carbon:   { name: 'Carbon',   swatch: '#94a3b8', main: '#0b0c0f', panelGlass: 'rgba(11,12,15,0.97)', card: '#14161e', cardGradient: 'linear-gradient(to bottom,#20232e,#14161e)', bubble: '#16182a', report: '#101218' },
+  forest:   { name: 'Forest',   swatch: '#22c55e', main: '#040e08', panelGlass: 'rgba(4,14,8,0.97)',   card: '#081808', cardGradient: 'linear-gradient(to bottom,#0e2e14,#081808)', bubble: '#091a0a', report: '#061208' },
+  violet:   { name: 'Violet',   swatch: '#a855f7', main: '#07041c', panelGlass: 'rgba(7,4,28,0.97)',   card: '#0f082c', cardGradient: 'linear-gradient(to bottom,#1c0e48,#0f082c)', bubble: '#120a30', report: '#0a0620' },
+  ember:    { name: 'Ember',    swatch: '#f97316', main: '#130500', panelGlass: 'rgba(19,5,0,0.97)',   card: '#220c04', cardGradient: 'linear-gradient(to bottom,#3c1606,#220c04)', bubble: '#1e0a04', report: '#180604' },
+  ocean:    { name: 'Ocean',    swatch: '#06b6d4', main: '#020c18', panelGlass: 'rgba(2,12,24,0.97)',  card: '#061a2c', cardGradient: 'linear-gradient(to bottom,#082e48,#061a2c)', bubble: '#071c32', report: '#041422' },
+  rose:     { name: 'Rose',     swatch: '#f43f5e', main: '#130408', panelGlass: 'rgba(19,4,8,0.97)',   card: '#220812', cardGradient: 'linear-gradient(to bottom,#3a0e1e,#220812)', bubble: '#1e080e', report: '#160608' },
+  amber:    { name: 'Amber',    swatch: '#f59e0b', main: '#110800', panelGlass: 'rgba(17,8,0,0.97)',   card: '#1e1200', cardGradient: 'linear-gradient(to bottom,#321c00,#1e1200)', bubble: '#1c1000', report: '#160c00' },
 } as const;
 type ThemeName = keyof typeof THEMES;
 
@@ -1134,19 +1136,22 @@ Stats: ${userMsgs} student messages in this session.`;
 
             <div className="col-span-2 md:col-span-4">
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Theme</p>
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
                 {(Object.keys(THEMES) as ThemeName[]).map(t => (
                   <button
                     key={t}
                     onClick={() => setSettings(s => ({ ...s, theme: t }))}
-                    title={THEMES[t].name}
-                    className={`flex flex-col items-center gap-1 group transition-all`}
+                    className={`flex flex-col items-center gap-1.5 py-2 rounded-xl border transition-all ${
+                      settings.theme === t
+                        ? 'border-white/40 bg-white/8'
+                        : 'border-slate-700/50 hover:border-slate-500 hover:bg-slate-800/40'
+                    }`}
                   >
                     <div
-                      className={`w-8 h-8 rounded-full border-2 transition-all ${settings.theme === t ? 'border-white scale-110 shadow-lg shadow-white/10' : 'border-slate-600 hover:border-slate-400 hover:scale-105'}`}
-                      style={{ background: THEMES[t].cardGradient }}
+                      className={`w-8 h-8 rounded-full border-2 transition-all ${settings.theme === t ? 'border-white scale-110 shadow-lg' : 'border-transparent'}`}
+                      style={{ background: THEMES[t].swatch }}
                     />
-                    <span className={`text-[9px] font-semibold transition-colors ${settings.theme === t ? 'text-white' : 'text-slate-600 group-hover:text-slate-400'}`}>
+                    <span className={`text-[9px] font-semibold transition-colors ${settings.theme === t ? 'text-white' : 'text-slate-500'}`}>
                       {THEMES[t].name}
                     </span>
                   </button>
@@ -1333,21 +1338,32 @@ Stats: ${userMsgs} student messages in this session.`;
           )}
 
           {/* ── Quick theme switcher ── */}
-          <div className="mt-auto pt-3 border-t border-slate-800/30 flex items-center gap-3">
-            <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider shrink-0">Theme</span>
-            <div className="flex gap-1.5">
+          <div className="mt-auto pt-3 border-t border-slate-800/30">
+            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-2">Theme</p>
+            <div className="grid grid-cols-4 gap-1.5">
               {(Object.keys(THEMES) as ThemeName[]).map(t => (
                 <button
                   key={t}
                   onClick={() => setSettings(s => ({ ...s, theme: t }))}
                   title={THEMES[t].name}
-                  className={`w-5 h-5 rounded-full border-2 transition-all ${
+                  className={`flex flex-col items-center gap-1 py-1.5 px-1 rounded-xl border transition-all ${
                     settings.theme === t
-                      ? 'border-white scale-125 shadow-md'
-                      : 'border-transparent hover:scale-110 hover:border-slate-400'
+                      ? 'border-white/40 bg-white/8 shadow-md'
+                      : 'border-transparent hover:border-slate-600/50 hover:bg-white/4'
                   }`}
-                  style={{ background: THEMES[t].swatch }}
-                />
+                >
+                  <div
+                    className={`w-6 h-6 rounded-full border-2 transition-all ${
+                      settings.theme === t ? 'border-white scale-110' : 'border-transparent'
+                    }`}
+                    style={{ background: THEMES[t].swatch }}
+                  />
+                  <span className={`text-[9px] font-semibold leading-none transition-colors ${
+                    settings.theme === t ? 'text-white' : 'text-slate-600'
+                  }`}>
+                    {THEMES[t].name}
+                  </span>
+                </button>
               ))}
             </div>
           </div>
