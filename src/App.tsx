@@ -927,59 +927,62 @@ Be encouraging and concrete. Maximum 3 sentences total. Do NOT wait for the stud
     if (recognitionRef.current) try { recognitionRef.current.stop(); } catch (_) {}
 
     const hist = historyRef.current;
-    const snap = correctionsRef.current;
     const userMsgs = hist.filter(m => m.sender === 'user').length;
 
-    const reportSystemPrompt = `You are an expert English language tutor for Brazilian students. Generate a complete, warm session report based on the conversation that just ended.
+    const reportSystemPrompt = `You are an expert English conversation coach for Brazilian students. Generate a complete, detailed, and warm session report based ONLY on what actually happened in this conversation. Be specific — use real examples from the chat. Never be generic.
 
-Write the entire report in English. Be specific — reference real examples from the conversation. Never be generic.
+Write the entire report in English. Structure it EXACTLY as follows:
 
-Structure the report EXACTLY as follows (use these headings):
+🎯 SESSION SUMMARY
 
-📊 OVERALL ASSESSMENT
-Rate each on 0–10 with one sentence of reasoning:
-• Fluency: X/10
-• Grammar: X/10
-• Vocabulary: X/10
-• Confidence: X/10
+📊 SCORES
+• CEFR Level Estimate: [A1 / A2 / B1 / B2 / C1 / C2] — explain the reasoning in one sentence.
+• Fluency: X/10 — (ability to maintain natural conversational flow)
+• Grammar: X/10 — (overall grammatical accuracy)
+• Vocabulary: X/10 — (range and appropriateness of words used)
+• Communication: X/10 — (ability to convey ideas effectively, even with errors)
 
-❌ MOST FREQUENT ERRORS
-List up to 5 error patterns observed, with real examples from the conversation:
-• [Error type]: "original phrase" → "correct form" (brief explanation)
+❌ MOST FREQUENT GRAMMAR ISSUES
+Present as a table:
+Grammar Topic | Example from conversation | Priority (High/Medium/Low)
+[list up to 5, with real examples]
 
 ✅ GRAMMAR CORRECTIONS
-For each significant error:
+For each significant error (max 5):
 Original: "..."
 Correct: "..."
-Rule: ... (simple explanation in 1–2 sentences)
+Explanation: ... (simple rule, 1–2 sentences)
 
 📚 VERB TENSE ANALYSIS
-Strong areas: (list tenses used correctly)
-Needs improvement: (list tenses with issues and why)
+Strong (used correctly):
+• [tense]: example from conversation
+
+Needs Practice (used incorrectly or avoided):
+• [tense]: what was observed — why it needs improvement
 
 🎯 PERSONALIZED STUDY PLAN
-Top 3 topics to study next:
-1. ...
-2. ...
-3. ...
+Top 5 topics to study (in priority order):
+1. [topic] — why this is the most important
+2. [topic] — brief reason
+3. [topic]
+4. [topic]
+5. [topic]
 
-💬 VOCABULARY
-New words used well: (list from conversation)
-10 suggested words related to today's topics:
-(numbered list)
+💬 VOCABULARY EXPANSION
+New words/expressions used well in this session:
+• ...
 
-Natural alternatives:
-Instead of "..." → Say "..." (explain briefly)
-(list 2–3 examples from the conversation)
+10 suggested words/expressions related to today's topics:
+1. ... 2. ... 3. ... 4. ... 5. ... 6. ... 7. ... 8. ... 9. ... 10. ...
 
-🏆 LEVEL CLASSIFICATION
-Level: Beginner (A1–A2) / Intermediate (B1–B2) / Advanced (C1–C2)
-Reasoning: ...
+Natural English alternatives:
+Instead of: "..." → Say: "..." (brief explanation)
+[list 3–5 examples from the actual conversation]
 
 🌟 MOTIVATIONAL FEEDBACK
-(2–3 sentences: specific strengths observed today, encouragement, and one concrete next step)
+[3–4 sentences: highlight genuine strengths observed, specific progress, one concrete next step. Be warm and personal, not generic.]
 
-Conversation stats: ${userMsgs} student messages, ${snap.length} tracked error(s).`;
+Stats: ${userMsgs} student messages in this session.`;
 
     const messages: LLMMessage[] = [
       ...hist.map(m => ({ role: m.sender === 'user' ? 'user' as const : 'assistant' as const, content: m.text })),
