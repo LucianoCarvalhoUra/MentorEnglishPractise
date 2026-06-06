@@ -102,13 +102,24 @@ async function callLLM(systemPrompt: string, messages: LLMMessage[], groqModel =
   throw new Error('No API key found. Add VITE_GROQ_API_KEY, VITE_OPENROUTER_API_KEY, or VITE_GEMINI_API_KEY to your .env file.');
 }
 
+const THEMES = {
+  midnight:  { name: 'Midnight',  swatch: '#171d2e', main: '#0b0f19', panelGlass: 'rgba(13,18,32,0.95)',   card: '#131926', cardGradient: 'linear-gradient(to bottom,#171d2e,#131926)', bubble: '#141d2f', report: '#0f1a2e' },
+  carbon:    { name: 'Carbon',    swatch: '#222222', main: '#0c0c0c', panelGlass: 'rgba(15,15,15,0.95)',   card: '#1a1a1a', cardGradient: 'linear-gradient(to bottom,#222222,#1a1a1a)', bubble: '#181818', report: '#141414' },
+  forest:    { name: 'Forest',    swatch: '#162118', main: '#080f0a', panelGlass: 'rgba(9,15,11,0.95)',    card: '#111c14', cardGradient: 'linear-gradient(to bottom,#162118,#111c14)', bubble: '#121d14', report: '#0a1710' },
+  amethyst:  { name: 'Amethyst', swatch: '#1d1b30', main: '#0d0b18', panelGlass: 'rgba(14,12,22,0.95)',   card: '#181626', cardGradient: 'linear-gradient(to bottom,#1d1b30,#181626)', bubble: '#151228', report: '#100e1c' },
+  onyx:      { name: 'Onyx',     swatch: '#1e1b16', main: '#100f0d', panelGlass: 'rgba(16,14,12,0.95)',   card: '#1a1815', cardGradient: 'linear-gradient(to bottom,#201d18,#1a1815)', bubble: '#181613', report: '#141210' },
+  abyss:     { name: 'Abyss',    swatch: '#112230', main: '#060d14', panelGlass: 'rgba(7,14,21,0.95)',    card: '#0e1e29', cardGradient: 'linear-gradient(to bottom,#112230,#0e1e29)', bubble: '#0d1c28', report: '#081420' },
+} as const;
+type ThemeName = keyof typeof THEMES;
+
 interface AppSettings {
   correctionLevel: 'off' | 'gentle' | 'strict';
-  correctionTiming: 'realtime' | 'summary';
+  correctionTiming: 'realtime' | 'summary' | 'adaptive';
   speechRate: 'slow' | 'normal' | 'fast';
   modelQuality: 'fast' | 'quality';
+  theme: ThemeName;
 }
-const DEFAULT_SETTINGS: AppSettings = { correctionLevel: 'strict', correctionTiming: 'realtime', speechRate: 'normal', modelQuality: 'fast' };
+const DEFAULT_SETTINGS: AppSettings = { correctionLevel: 'gentle', correctionTiming: 'adaptive', speechRate: 'normal', modelQuality: 'fast', theme: 'midnight' };
 const SETTINGS_KEY = 'me_settings';
 const SPEECH_RATES: Record<AppSettings['speechRate'], number> = { slow: 0.75, normal: 0.95, fast: 1.2 };
 const GROQ_MODELS: Record<AppSettings['modelQuality'], string> = {
@@ -269,6 +280,7 @@ interface ChatMessage {
   text: string;
   feedback?: Correction;
   positive?: Positive;
+  isReport?: boolean;
   timestamp: string;
 }
 
@@ -301,6 +313,8 @@ export default function App() {
   const historyRef = useRef<ChatMessage[]>([]);
   const voicesRef = useRef<SpeechSynthesisVoice[]>([]);
   const correctionsRef = useRef<Correction[]>([]);
+  const adaptiveTurnCountRef = useRef(0);
+  const adaptivePermissionAskedRef = useRef(false);
   const focusExamplesRef = useRef<Array<{said: string; correct: string}>>([]);
   const focusGreetingDoneRef = useRef(false);
   const resumeTimerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
@@ -406,7 +420,6 @@ export default function App() {
 
   const parseLunaResponse = (fullText: string) => {
     const fullRegex = /\[CORRECTION\s+category="([^"]+)"\s+said="([^"]+)"\s+correct="([^"]+)"\]([\s\S]*?)\[\/CORRECTION\]/i;
-    // Fallback when AI forgets to close the tag — capture only the first sentence as explanation
     const openRegex = /\[CORRECTION\s+category="([^"]+)"\s+said="([^"]+)"\s+correct="([^"]+)"\]([\s\S]{0,150}?[.!?])/i;
     const match = fullText.match(fullRegex) ?? fullText.match(openRegex);
 
@@ -417,6 +430,8 @@ export default function App() {
     if (match) {
       const [fullTag, category, said, correct, explanation] = match;
       cleanText = fullText.replace(fullTag, '').trim();
+      // When open tag format consumed all text, recover display text from explanation
+      if (!cleanText && explanation.trim()) cleanText = explanation.trim();
       feedback = { category, said, correct, explanation: explanation.trim() };
     }
 
@@ -426,17 +441,22 @@ export default function App() {
     if (posMatch) {
       const [posTag, category, example, explanation] = posMatch;
       cleanText = cleanText.replace(posTag, '').trim();
+      if (!cleanText && explanation.trim()) cleanText = explanation.trim();
       positive = { category, example, explanation: explanation.trim() };
     }
 
+    // Detect hidden permission-request marker and strip it
+    const permissionAsked = /\[PERMISSION_ASKED\]/i.test(cleanText);
+
     cleanText = cleanText
+      .replace(/\[PERMISSION_ASKED\]/gi, '')
       .replace(/\[CORRECTION[^\]]*\]/gi, '')
       .replace(/\[\/CORRECTION\]/gi, '')
       .replace(/\[POSITIVE[^\]]*\]/gi, '')
       .replace(/\[\/POSITIVE\]/gi, '')
       .trim();
 
-    return { cleanText, feedback, positive };
+    return { cleanText, feedback, positive, permissionAsked };
   };
 
   const processUserSpeech = async (text: string) => {
@@ -451,6 +471,14 @@ export default function App() {
         text: "API Key missing. Please add VITE_GROQ_API_KEY, VITE_OPENROUTER_API_KEY, or VITE_GEMINI_API_KEY to your .env file.",
         timestamp: new Date().toLocaleTimeString()
       }]);
+      return;
+    }
+
+    // Detect end-session triggers
+    if (/^\s*(end|finish|stop|end session|bye|goodbye)\s*$/i.test(text)) {
+      const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      setHistory(prev => [...prev, { id: crypto.randomUUID(), sender: 'user', text, timestamp }]);
+      await generateSessionReport();
       return;
     }
 
@@ -471,24 +499,114 @@ export default function App() {
       const slugs = 'past_simple · present_simple · present_continuous · present_perfect · future · conditionals · modals · articles · prepositions · pronunciation · vocabulary · word_order · plurals · phrasal_verbs · questions · negations';
 
       const isSummaryMode = settings.correctionTiming === 'summary';
+      const isAdaptiveMode = settings.correctionTiming === 'adaptive';
+      const isSilentMode = isSummaryMode || isAdaptiveMode;
+
+      // Adaptive: three phases — observing → asking permission → responding to answer
+      const ADAPTIVE_INTERVAL = 15; // proactive feedback offer after ~15 student messages
+      let isAdaptiveReviewTurn = false;
+      let isAdaptivePermissionTurn = false;
+      if (isAdaptiveMode) {
+        if (adaptivePermissionAskedRef.current) {
+          isAdaptivePermissionTurn = true;
+          adaptivePermissionAskedRef.current = false;
+        } else {
+          adaptiveTurnCountRef.current += 1;
+          if (adaptiveTurnCountRef.current >= ADAPTIVE_INTERVAL) {
+            isAdaptiveReviewTurn = true;
+            adaptiveTurnCountRef.current = 0;
+          }
+        }
+      }
 
       const correctionBlock = settings.correctionLevel === 'off'
         ? `# Corrections: OFF\nDo NOT correct mistakes. Have a natural conversation.`
-        : isSummaryMode
-          ? `# Correction (SILENT LOG)
+        : isAdaptiveMode
+          ? isAdaptivePermissionTurn
+            ? `# Responding to the Student's Feedback Request
+The student just replied to your feedback offer. Based on their response:
+
+If YES (or anything affirmative — "sure", "yes", "ok", "go ahead", "please"):
+  Analyze the full conversation history and deliver a warm, structured mini-feedback:
+
+  MAIN STRENGTHS (be specific, use real examples from the conversation):
+  • Vocabulary: ...
+  • Fluency: ...
+  • Confidence: ...
+
+  AREAS TO IMPROVE:
+  • Verb tenses: [specific pattern observed]
+  • Grammar: [specific pattern]
+  • Sentence structure: [if applicable]
+
+  TOP 3 MISTAKES (most important only — not all errors):
+  For each, use: [CORRECTION category="slug" said="exact student words" correct="correct form"]one-sentence explanation.[/CORRECTION]
+  1. [CORRECTION ...]
+  2. [CORRECTION ...]
+  3. [CORRECTION ...]
+
+  Close with genuine encouragement. Then ask ONE question to continue.
+  Valid slugs: ${slugs}
+
+If NO (or "later", "keep going", "continue", "not now", etc.):
+  Reply: "No problem! Let's keep the conversation going. I'll have a full summary ready at the end for you." Then ask ONE question.`
+            : isAdaptiveReviewTurn
+              ? `# Proactive Feedback Offer (after ~15 messages)
+Ask warmly and naturally: "We've been chatting for a while — would you like some feedback on your English so far?"
+Include [PERMISSION_ASKED] anywhere in your message (invisible tag, stripped before display).
+Keep it brief. Do NOT give any corrections or hints about errors yet.`
+              : `# Intelligent Conversation Coach
+PHILOSOPHY: Communication has absolute priority over correction.
+Before every response: (1) understand the student's intention, (2) understand the context, (3) respond to the MEANING — not the grammar.
+
+EXAMPLE:
+Student says: "I like watch movies on weekend."
+❌ NEVER say: "Correction: I like to watch movies on weekends."
+✅ ALWAYS say: "Nice! What kind of movies do you usually watch?" — and log the error internally.
+
+SILENT MONITORING (never display — log internally only):
+• Grammar errors • Incorrect verb tenses • Vocabulary • Sentence structure
+
+ERROR PRIORITY:
+LOW — NEVER correct during conversation:
+  - Articles (a, an, the), prepositions (in/on/at), plurals, minor vocabulary
+MEDIUM — Save for feedback, do not interrupt:
+  - Wrong verb tenses ("I have went"), awkward structures
+HIGH — MAY interrupt (ONLY in specific situations below):
+  - Incomprehensible message, same error 5+ times, student asked for corrections
+
+⚠️ RULE: Maximum 1 corrective intervention per 10 student messages — even with many errors.
+
+WHEN TO INTERRUPT:
+Situation 1 — Comprehension blocked:
+  Say: "I want to make sure I understood. Could you say that another way?"
+Situation 2 — Same error repeated 5+ times:
+  Say: "I noticed a recurring pattern in your sentences. Would you like a quick correction before we continue?"
+  Include [PERMISSION_ASKED] anywhere in your message.
+Situation 3 — Student explicitly asked ("Correct me", "Fix my mistakes", "I want feedback"):
+  Correct immediately: [CORRECTION category="slug" said="exact words" correct="correct form"]brief note.[/CORRECTION]
+  Valid slugs: ${slugs}
+
+ANTI-INTERRUPTION CHECK before any intervention:
+"Can the student still communicate effectively?" If YES → continue, log the error.
+
+RESPONSE BALANCE: 70% genuine conversation · 30% organic teaching moments (weave in vocabulary naturally).
+Keep replies to 1–2 short sentences + ONE open-ended question. Adapt difficulty to observed level.`
+          : isSummaryMode
+            ? `# Correction (SILENT LOG)
 For EVERY mistake: insert the tag silently, then reply naturally — never mention the error aloud.
 IMPORTANT: correct="..." must be the SHORT correct word/phrase only (max 4 words), NOT an explanation.
 [CORRECTION category="slug" said="their words" correct="correct word"]Brief note.[/CORRECTION] Natural reply.
 Example: [CORRECTION category="vocabulary" said="hob" correct="hobby"]hobby, not hob[/CORRECTION] Motorcycling is cool!
 Slugs: ${slugs}`
-          : settings.correctionLevel === 'gentle'
-            ? `# Correction (GENTLE)
+            : settings.correctionLevel === 'gentle'
+              ? `# Correction (GENTLE)
 When the student makes a clear mistake, correct it briefly.
 IMPORTANT: correct="..." must be the SHORT correct word/phrase only (max 4 words), NOT an explanation.
 [CORRECTION category="<slug>" said="<their words>" correct="<correct word/phrase>"]2–4 words.[/CORRECTION] Reply here.
 Example: [CORRECTION category="vocabulary" said="hob" correct="hobby"]Say "hobby".[/CORRECTION] That sounds fun!
 Valid slugs: ${slugs}`
-            : `# Correction (STRICT)
+              : `# Correction (STRICT)
 Correct EVERY grammar, vocabulary, or word-order mistake.
 IMPORTANT: correct="..." must be the SHORT correct word/phrase only (max 4 words), NOT an explanation.
 [CORRECTION category="<slug>" said="<exact words>" correct="<correct word/phrase>"]One sentence rule.[/CORRECTION] Reply here.
@@ -505,14 +623,18 @@ Only when genuinely noteworthy. Never combine with CORRECTION in the same turn.`
 
       const systemPrompt = `
 # Personality
-You are Luna, a warm and encouraging ${languageNames[targetLanguage]} language tutor. You celebrate small wins and adapt to the student's level in real time.
+You are Luna, a warm and encouraging ${languageNames[targetLanguage]} conversation coach specialising in Brazilian students. You celebrate small wins, adapt to the student's level in real time, and prioritise natural, flowing conversation above all else.
 ${focusLine}
 
-# Adaptive level
-Never ask "what level are you?" — assess through conversation. Beginners: simple words, slow pace. Advanced: idioms, complex grammar.
+# Core principles
+- Always converse in ${languageNames[targetLanguage]}. Switch to Portuguese ONLY if the student explicitly asks for an explanation in Portuguese.
+- Assess the student's level through conversation — never ask "what level are you?". Beginners: simple vocabulary, short sentences, slow pace. Advanced: idioms, complex grammar, nuanced vocabulary.
+- Ask open-ended questions that encourage longer answers and keep the conversation engaging.
+- FLUENCY first. Do not interrupt the flow to correct every small mistake. The student needs to feel confident speaking.
+- Introduce 1–2 new vocabulary words per session naturally in context.
 
 # Goal
-Help the student practice conversational ${languageNames[targetLanguage]}. Introduce 1–2 new words per session in context.
+Help the student develop fluency, confidence, vocabulary, grammar, and command of verb tenses through natural conversation.
 
 ${correctionBlock}
 
@@ -535,15 +657,20 @@ ${positiveBlock}
       const groqModel = GROQ_MODELS[settings.modelQuality];
       const responseText = await callLLM(systemPrompt, messages, groqModel);
 
-      const { cleanText, feedback, positive } = parseLunaResponse(responseText);
+      const { cleanText, feedback, positive, permissionAsked } = parseLunaResponse(responseText);
+
+      // If Luna asked permission on this review turn, arm the flag for the next user turn
+      if (isAdaptiveReviewTurn && permissionAsked) {
+        adaptivePermissionAskedRef.current = true;
+      }
 
       if (feedback) {
         setCorrections(prev => [...prev, feedback]);
       }
 
       // In realtime mode: show feedback/positive inside the user bubble
-      // In summary mode: collect silently, don't show in chat
-      if (!isSummaryMode && (feedback || positive)) {
+      // In silent modes (summary/adaptive): collect silently, don't show in chat
+      if (!isSilentMode && (feedback || positive)) {
         setHistory(prev => {
           for (let i = prev.length - 1; i >= 0; i--) {
             if (prev[i].sender === 'user') {
@@ -567,8 +694,8 @@ ${positiveBlock}
       setCurrentTranscript('');
 
       let spokenText = cleanText || responseText;
-      // In realtime mode, speak the correction aloud; in summary mode stay silent
-      if (!isSummaryMode && feedback) {
+      // In realtime mode, speak the correction aloud; in silent modes stay quiet
+      if (!isSilentMode && feedback) {
         spokenText += ` — Quick correction: instead of "${feedback.said}", you should say "${feedback.correct}". ${feedback.explanation}`;
       }
       speak(spokenText);
@@ -779,6 +906,8 @@ Be encouraging and concrete. Maximum 3 sentences total. Do NOT wait for the stud
       setSessionScore(score);
     }
 
+    adaptiveTurnCountRef.current = 0;
+    adaptivePermissionAskedRef.current = false;
     playBeep('stop');
     setIsCallActive(false);
     isCallActiveRef.current = false;
@@ -793,6 +922,95 @@ Be encouraging and concrete. Maximum 3 sentences total. Do NOT wait for the stud
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   };
 
+  const generateSessionReport = async () => {
+    setStatus('analyzing');
+    if (recognitionRef.current) try { recognitionRef.current.stop(); } catch (_) {}
+
+    const hist = historyRef.current;
+    const snap = correctionsRef.current;
+    const userMsgs = hist.filter(m => m.sender === 'user').length;
+
+    const reportSystemPrompt = `You are an expert English language tutor for Brazilian students. Generate a complete, warm session report based on the conversation that just ended.
+
+Write the entire report in English. Be specific — reference real examples from the conversation. Never be generic.
+
+Structure the report EXACTLY as follows (use these headings):
+
+📊 OVERALL ASSESSMENT
+Rate each on 0–10 with one sentence of reasoning:
+• Fluency: X/10
+• Grammar: X/10
+• Vocabulary: X/10
+• Confidence: X/10
+
+❌ MOST FREQUENT ERRORS
+List up to 5 error patterns observed, with real examples from the conversation:
+• [Error type]: "original phrase" → "correct form" (brief explanation)
+
+✅ GRAMMAR CORRECTIONS
+For each significant error:
+Original: "..."
+Correct: "..."
+Rule: ... (simple explanation in 1–2 sentences)
+
+📚 VERB TENSE ANALYSIS
+Strong areas: (list tenses used correctly)
+Needs improvement: (list tenses with issues and why)
+
+🎯 PERSONALIZED STUDY PLAN
+Top 3 topics to study next:
+1. ...
+2. ...
+3. ...
+
+💬 VOCABULARY
+New words used well: (list from conversation)
+10 suggested words related to today's topics:
+(numbered list)
+
+Natural alternatives:
+Instead of "..." → Say "..." (explain briefly)
+(list 2–3 examples from the conversation)
+
+🏆 LEVEL CLASSIFICATION
+Level: Beginner (A1–A2) / Intermediate (B1–B2) / Advanced (C1–C2)
+Reasoning: ...
+
+🌟 MOTIVATIONAL FEEDBACK
+(2–3 sentences: specific strengths observed today, encouragement, and one concrete next step)
+
+Conversation stats: ${userMsgs} student messages, ${snap.length} tracked error(s).`;
+
+    const messages: LLMMessage[] = [
+      ...hist.map(m => ({ role: m.sender === 'user' ? 'user' as const : 'assistant' as const, content: m.text })),
+      { role: 'user', content: 'END SESSION — please generate my full report now.' }
+    ];
+
+    try {
+      const groqModel = GROQ_MODELS[settings.modelQuality];
+      const reportText = await callLLM(reportSystemPrompt, messages, groqModel);
+
+      setHistory(prev => [...prev, {
+        id: crypto.randomUUID(),
+        sender: 'luna',
+        text: reportText,
+        isReport: true,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }]);
+
+      speak("Your session report is ready! Great work today. Keep it up!");
+    } catch (e: any) {
+      setHistory(prev => [...prev, {
+        id: crypto.randomUUID(),
+        sender: 'luna',
+        text: "Sorry, I couldn't generate the report right now. But you did great today!",
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }]);
+    } finally {
+      setTimeout(() => endCall(), 3500);
+    }
+  };
+
   const startFocusedCall = (topic: string, examples: Array<{said: string; correct: string}>) => {
     setFocusTopic(topic);
     setFocusExamples(examples);
@@ -800,13 +1018,17 @@ Be encouraging and concrete. Maximum 3 sentences total. Do NOT wait for the stud
   };
 
   return (
-    <div className="h-screen bg-[#0b0f19] text-slate-200 flex flex-col overflow-hidden font-sans">
+    <div className="h-screen text-slate-200 flex flex-col overflow-hidden font-sans"
+      style={{ '--t-card': THEMES[settings.theme].card, '--t-bubble': THEMES[settings.theme].bubble, '--t-report': THEMES[settings.theme].report, background: THEMES[settings.theme].main } as React.CSSProperties}>
 
-      {/* ── Top bar ─────────────────────────────────── */}
-      <header className="flex-none flex items-center justify-between px-4 md:px-6 py-3 border-b border-slate-800/50 bg-[#0d1220]/95 backdrop-blur">
-        <div className="flex items-center gap-2">
-          <Sparkles className="text-pink-400 w-4 h-4" />
-          <span className="text-xs font-bold tracking-widest text-slate-400 uppercase">MentorStudy</span>
+      {/* ── Header ── */}
+      <header className="flex-none flex items-center justify-between px-5 md:px-8 py-3.5 border-b border-slate-800/50 backdrop-blur z-10"
+        style={{ background: THEMES[settings.theme].panelGlass }}>
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-600/30 to-pink-600/20 border border-indigo-500/30 flex items-center justify-center">
+            <Sparkles className="text-pink-400 w-3.5 h-3.5" />
+          </div>
+          <span className="text-sm font-bold tracking-widest text-slate-300 uppercase">MentorStudy</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60">
@@ -817,39 +1039,39 @@ Be encouraging and concrete. Maximum 3 sentences total. Do NOT wait for the stud
               disabled={isCallActive}
               className="bg-transparent text-xs text-slate-200 font-semibold focus:outline-none cursor-pointer disabled:opacity-50"
             >
-              <option value="en-US" className="bg-[#131926]">English</option>
-              <option value="es-ES" className="bg-[#131926]">Spanish</option>
-              <option value="fr-FR" className="bg-[#131926]">French</option>
-              <option value="de-DE" className="bg-[#131926]">German</option>
+              <option value="en-US">English</option>
+              <option value="es-ES">Spanish</option>
+              <option value="fr-FR">French</option>
+              <option value="de-DE">German</option>
             </select>
           </div>
           <button
             onClick={() => setShowSettings(v => !v)}
             disabled={isCallActive}
-            className={`p-1.5 rounded-xl border transition-all disabled:opacity-40 ${
+            className={`p-2 rounded-xl border transition-all disabled:opacity-40 ${
               showSettings
                 ? 'bg-indigo-600/30 border-indigo-500/40 text-indigo-300'
-                : 'bg-slate-800/80 border-slate-700/60 text-slate-400 hover:text-slate-200'
+                : 'bg-slate-800/80 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-700/60'
             }`}
             title="Settings"
           >
-            <Settings className="w-3.5 h-3.5" />
+            <Settings className="w-4 h-4" />
           </button>
         </div>
       </header>
 
-      {/* ── Settings panel ──────────────────────────── */}
+      {/* ── Settings panel ── */}
       {showSettings && !isCallActive && (
-        <div className="flex-none border-b border-slate-800/50 bg-[#0d1220]/95 backdrop-blur px-4 md:px-6 py-4">
-          <div className="max-w-xl mx-auto grid grid-cols-1 gap-3">
+        <div className="flex-none border-b border-slate-800/50 backdrop-blur px-5 md:px-8 py-4"
+          style={{ background: THEMES[settings.theme].panelGlass }}>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
 
-            {/* Correction level */}
-            <div>
+            <div className="col-span-2 md:col-span-1">
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Correction level</p>
-              <div className="flex gap-2">
+              <div className="flex gap-1.5">
                 {(['off', 'gentle', 'strict'] as const).map(l => (
                   <button key={l} onClick={() => setSettings(s => ({ ...s, correctionLevel: l }))}
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all capitalize ${
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                       settings.correctionLevel === l ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
                     }`}>
                     {l === 'off' ? 'Off' : l === 'gentle' ? 'Gentle' : 'Strict'}
@@ -858,35 +1080,29 @@ Be encouraging and concrete. Maximum 3 sentences total. Do NOT wait for the stud
               </div>
             </div>
 
-            {/* Correction timing */}
-            {settings.correctionLevel !== 'off' && (
-              <div>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Correction timing</p>
-                <div className="flex gap-2">
-                  {(['realtime', 'summary'] as const).map(t => (
-                    <button key={t} onClick={() => setSettings(s => ({ ...s, correctionTiming: t }))}
-                      className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                        settings.correctionTiming === t ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                      }`}>
-                      {t === 'realtime' ? 'Real-time' : 'End summary'}
-                    </button>
-                  ))}
-                </div>
-                <p className="text-[10px] text-slate-600 mt-1">
-                  {settings.correctionTiming === 'realtime'
-                    ? 'Corrections appear inside each message bubble as you speak.'
-                    : 'Luna converses naturally — corrections shown only in the session summary.'}
-                </p>
-              </div>
-            )}
-
-            {/* Speech speed */}
             <div>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Speech speed</p>
-              <div className="flex gap-2">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Timing</p>
+              <div className="flex gap-1.5">
+                {(['realtime', 'summary', 'adaptive'] as const).map(t => (
+                  <button key={t} onClick={() => setSettings(s => ({ ...s, correctionTiming: t }))}
+                    disabled={settings.correctionLevel === 'off'}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-30 ${
+                      settings.correctionTiming === t && settings.correctionLevel !== 'off'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                    }`}>
+                    {t === 'realtime' ? 'Live' : t === 'summary' ? 'Summary' : 'Adaptive'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Speed</p>
+              <div className="flex gap-1.5">
                 {(['slow', 'normal', 'fast'] as const).map(s => (
                   <button key={s} onClick={() => setSettings(prev => ({ ...prev, speechRate: s }))}
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all capitalize ${
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                       settings.speechRate === s ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
                     }`}>
                     {s === 'slow' ? 'Slow' : s === 'normal' ? 'Normal' : 'Fast'}
@@ -895,198 +1111,226 @@ Be encouraging and concrete. Maximum 3 sentences total. Do NOT wait for the stud
               </div>
             </div>
 
-            {/* AI quality */}
             <div>
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">AI quality</p>
-              <div className="flex gap-2">
+              <div className="flex gap-1.5">
                 {(['fast', 'quality'] as const).map(q => (
                   <button key={q} onClick={() => setSettings(s => ({ ...s, modelQuality: q }))}
                     className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                       settings.modelQuality === q ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
                     }`}>
-                    {q === 'fast' ? 'Fast (8B)' : 'Better (70B)'}
+                    {q === 'fast' ? 'Fast' : 'Better'}
                   </button>
                 ))}
               </div>
-              <p className="text-[10px] text-slate-600 mt-1">Better follows correction rules more reliably; Fast responds quicker.</p>
+            </div>
+
+            <div className="col-span-2 md:col-span-4">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Theme</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                {(Object.keys(THEMES) as ThemeName[]).map(t => (
+                  <button
+                    key={t}
+                    onClick={() => setSettings(s => ({ ...s, theme: t }))}
+                    title={THEMES[t].name}
+                    className={`flex flex-col items-center gap-1 group transition-all`}
+                  >
+                    <div
+                      className={`w-8 h-8 rounded-full border-2 transition-all ${settings.theme === t ? 'border-white scale-110 shadow-lg shadow-white/10' : 'border-slate-600 hover:border-slate-400 hover:scale-105'}`}
+                      style={{ background: THEMES[t].cardGradient }}
+                    />
+                    <span className={`text-[9px] font-semibold transition-colors ${settings.theme === t ? 'text-white' : 'text-slate-600 group-hover:text-slate-400'}`}>
+                      {THEMES[t].name}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
 
           </div>
         </div>
       )}
 
-      {/* ── Scrollable body ──────────────────────────── */}
-      <div className={`flex-1 min-h-0 flex flex-col w-full max-w-xl mx-auto px-4 py-4 gap-3 ${
-        isCallActive ? 'overflow-hidden' : 'overflow-y-auto'
-      }`}>
+      {/* ── Two-panel body ── */}
+      <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
 
-        {/* Focus mode badge */}
-        {focusTopic && !isCallActive && (
-          <div className="flex-none flex items-center gap-2 bg-indigo-950/60 border border-indigo-700/40 px-4 py-2 rounded-xl">
-            <BookOpen className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-            <span className="text-xs text-indigo-300 flex-1">
-              Focus: <span className="font-semibold capitalize">{focusTopic}</span>
-            </span>
-            <button onClick={() => setFocusTopic(null)} className="text-slate-500 hover:text-slate-300">
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
+        {/* ── Left panel: Luna + controls + score ── */}
+        <aside className={`flex-none w-full md:w-72 lg:w-80 flex flex-col gap-3 p-4 md:p-5 border-b md:border-b-0 md:border-r border-slate-800/40 md:overflow-y-auto ${
+          isCallActive ? 'overflow-hidden' : 'overflow-y-auto max-h-[44vh] md:max-h-none'
+        }`}>
 
-        {/* ── Aria panel ───────────────────────────── */}
-        {isCallActive ? (
-          /* Compact bar during call */
-          <div className="flex-none flex items-center gap-3 bg-[#131926] border border-slate-800/60 rounded-2xl px-4 py-2.5 shadow-lg">
-            <div className="shrink-0 w-11 h-11 overflow-hidden" style={{ clipPath: 'circle(50%)' }}>
-              <div style={{ transform: 'scale(0.46)', transformOrigin: 'top left', width: '96px', height: '96px' }}>
-                <LunaAvatar status={status} />
+          {/* Focus badge */}
+          {focusTopic && !isCallActive && (
+            <div className="flex items-center gap-2 bg-indigo-950/60 border border-indigo-700/40 px-3.5 py-2.5 rounded-xl">
+              <BookOpen className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+              <span className="text-xs text-indigo-300 flex-1">
+                Focus: <span className="font-semibold capitalize">{focusTopic}</span>
+              </span>
+              <button onClick={() => setFocusTopic(null)} className="text-slate-500 hover:text-slate-300 transition-colors">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Luna card or compact bar */}
+          {isCallActive ? (
+            <div className="flex items-center gap-3 border border-slate-800/60 rounded-2xl px-4 py-3 shadow-lg" style={{ background: 'var(--t-card)' }}>
+              <div className="shrink-0 w-12 h-12 overflow-hidden" style={{ clipPath: 'circle(50%)' }}>
+                <div style={{ transform: 'scale(0.5)', transformOrigin: 'top left', width: '96px', height: '96px' }}>
+                  <LunaAvatar status={status} />
+                </div>
               </div>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm font-bold text-white">Luna</span>
-                <Heart className="w-3 h-3 text-pink-500 fill-pink-500" />
-                {settings.correctionTiming === 'summary' && settings.correctionLevel !== 'off' && (
-                  <span className="text-[9px] font-bold bg-violet-800/60 text-violet-300 px-1.5 py-0.5 rounded-full border border-violet-700/40">
-                    {corrections.length > 0 ? `${corrections.length} logged` : 'logging'}
-                  </span>
-                )}
-              </div>
-              <span className="text-[10px] text-indigo-400 font-mono capitalize">{status}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={interruptLuna}
-                disabled={status !== 'speaking'}
-                title="Interrupt"
-                className="p-2 rounded-xl bg-amber-600/70 hover:bg-amber-600 disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all"
-              >
-                <PhoneOff className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={toggleMute}
-                title={isMuted ? 'Unmute' : 'Mute'}
-                className={`p-2 rounded-xl transition-all text-white ${isMuted ? 'bg-rose-700 hover:bg-rose-600' : 'bg-slate-700 hover:bg-slate-600'}`}
-              >
-                {isMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
-              </button>
-              <button
-                onClick={endCall}
-                className="px-3 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-1.5 transition-all"
-              >
-                <PhoneOff className="w-3.5 h-3.5" />
-                End
-              </button>
-            </div>
-          </div>
-        ) : (
-          /* Full card when idle */
-          <div className="flex-none bg-[#131926] rounded-3xl border border-slate-800/80 p-6 shadow-2xl flex flex-col items-center relative">
-            <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-32 h-32 bg-pink-600/10 blur-3xl rounded-full pointer-events-none" />
-            <div className="relative mb-3">
-              <LunaAvatar status={status} />
-            </div>
-            <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-1.5">
-              Luna <Heart className="w-3.5 h-3.5 text-pink-500 fill-pink-500" />
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5 mb-5 capitalize">
-              <span className="text-indigo-400 font-mono">{status}</span>
-            </p>
-            {!isSpeechSupported && (
-              <p className="text-xs text-rose-400 mb-4 text-center">Speech recognition requires Chrome or Edge.</p>
-            )}
-            <button
-              onClick={startCall}
-              disabled={!isSpeechSupported}
-              className="w-full py-3 px-6 rounded-xl font-semibold bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white flex items-center justify-center gap-2 transition-all shadow-lg"
-            >
-              <Phone className="w-4 h-4" />
-              Start Session{focusTopic ? ` · ${focusTopic}` : ''}
-            </button>
-          </div>
-        )}
-
-        {/* Transcript preview */}
-        {currentTranscript && (
-          <div className="flex-none bg-indigo-950/30 border border-indigo-900/40 px-4 py-2.5 rounded-xl">
-            <p className="text-sm text-indigo-300 italic">"{currentTranscript}"</p>
-          </div>
-        )}
-
-        {/* Session Score + Study Panel */}
-        {sessionScore !== null && !isCallActive && (
-          <div className="flex-none bg-[#131926] border border-slate-700/50 rounded-2xl p-4 space-y-4">
-            {/* Score header */}
-            <div className="flex items-center gap-4">
-              <ScoreRing score={sessionScore} />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-white">Session Complete</p>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {corrections.length === 0
-                    ? 'No corrections — flawless!'
-                    : `${corrections.length} correction${corrections.length > 1 ? 's' : ''} across ${history.filter(m => m.sender === 'user').length} messages`}
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-bold text-white">Luna</span>
+                  <Heart className="w-3 h-3 text-pink-500 fill-pink-500" />
+                  {settings.correctionTiming === 'summary' && settings.correctionLevel !== 'off' && (
+                    <span className="text-[9px] font-bold bg-violet-800/60 text-violet-300 px-1.5 py-0.5 rounded-full border border-violet-700/40">
+                      {corrections.length > 0 ? `${corrections.length} logged` : 'logging'}
+                    </span>
+                  )}
+                  {settings.correctionTiming === 'adaptive' && settings.correctionLevel !== 'off' && (
+                    <span className="text-[9px] font-bold bg-amber-900/60 text-amber-300 px-1.5 py-0.5 rounded-full border border-amber-700/40">
+                      {corrections.length > 0 ? `${corrections.length} noted` : 'analyzing'}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[10px] text-indigo-400 font-mono capitalize">{status}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={interruptLuna}
+                  disabled={status !== 'speaking'}
+                  title="Interrupt"
+                  className="p-2 rounded-xl bg-amber-600/70 hover:bg-amber-600 disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all"
+                >
+                  <PhoneOff className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={toggleMute}
+                  title={isMuted ? 'Unmute' : 'Mute'}
+                  className={`p-2 rounded-xl transition-all text-white ${isMuted ? 'bg-rose-700 hover:bg-rose-600' : 'bg-slate-700 hover:bg-slate-600'}`}
+                >
+                  {isMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                </button>
+                <button
+                  onClick={endCall}
+                  className="px-3 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-1.5 transition-all"
+                >
+                  <PhoneOff className="w-3.5 h-3.5" />
+                  End
+                </button>
               </div>
             </div>
-
-            {/* Perfect score */}
-            {sessionScore === 100 && (
-              <div className="bg-emerald-950/40 border border-emerald-700/30 rounded-xl px-4 py-3 text-center">
-                <p className="text-sm font-semibold text-emerald-300">Flawless session! Keep it up!</p>
+          ) : (
+            <div className="rounded-3xl border border-slate-800/80 p-6 shadow-2xl flex flex-col items-center relative overflow-hidden" style={{ background: THEMES[settings.theme].cardGradient }}>
+              <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-36 h-36 bg-pink-600/10 blur-3xl rounded-full pointer-events-none" />
+              <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 w-28 h-28 bg-indigo-600/10 blur-3xl rounded-full pointer-events-none" />
+              <div className="relative mb-4">
+                <LunaAvatar status={status} />
+                <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2" style={{ borderColor: THEMES[settings.theme].card }} />
               </div>
-            )}
+              <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-1.5 mb-0.5">
+                Luna <Heart className="w-3.5 h-3.5 text-pink-500 fill-pink-500" />
+              </h2>
+              <p className="text-xs text-slate-500 mb-5 capitalize">
+                <span className="text-indigo-400 font-mono">{status}</span>
+              </p>
+              {!isSpeechSupported && (
+                <p className="text-xs text-rose-400 mb-4 text-center">Speech recognition requires Chrome or Edge.</p>
+              )}
+              <button
+                onClick={startCall}
+                disabled={!isSpeechSupported}
+                className="w-full py-3 px-6 rounded-xl font-semibold bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-900/30"
+              >
+                <Phone className="w-4 h-4" />
+                {focusTopic ? `Practice · ${focusTopic}` : 'Start Session'}
+              </button>
+            </div>
+          )}
 
-            {/* Areas to improve — compact grid */}
-            {studySummary.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <BookOpen className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">Areas to Improve</span>
-                  <span className="ml-auto text-[10px] text-slate-600">
-                    {studySummary.reduce((s, i) => s + i.examples.length, 0)} corrections · {studySummary.length} areas
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {studySummary.map((item) => (
-                    <button
-                      key={item.category}
-                      onClick={() => startFocusedCall(item.category, item.examples)}
-                      className="bg-slate-800/50 hover:bg-slate-700/60 border border-transparent hover:border-indigo-700/30 rounded-xl p-3 text-left transition-all group"
-                    >
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs font-bold text-amber-300 capitalize leading-tight">
-                          {item.category.replace(/_/g, ' ')}
-                        </span>
-                        <span className="shrink-0 text-[9px] font-bold bg-amber-900/30 text-amber-500 px-1.5 py-0.5 rounded-full ml-1">
-                          {item.examples.length}×
-                        </span>
-                      </div>
-                      <div className="space-y-0.5 mb-2">
-                        {item.examples.slice(0, 2).map((ex, i) => (
-                          <p key={i} className="text-[10px] text-slate-500 truncate">
-                            <span className="text-rose-400/80 line-through">"{ex.said}"</span>
-                            <span className="text-slate-600 mx-0.5">→</span>
-                            <span className="text-emerald-400/80">"{ex.correct}"</span>
-                          </p>
-                        ))}
-                        {item.examples.length > 2 && (
-                          <p className="text-[9px] text-slate-600">+{item.examples.length - 2} more</p>
-                        )}
-                      </div>
-                      <p className="text-[9px] font-semibold text-indigo-500 group-hover:text-indigo-400 transition-colors">
-                        Practice →
-                      </p>
-                    </button>
-                  ))}
+          {/* Transcript preview */}
+          {currentTranscript && (
+            <div className="bg-indigo-950/30 border border-indigo-900/40 px-4 py-3 rounded-xl">
+              <p className="text-sm text-indigo-300 italic">"{currentTranscript}"</p>
+            </div>
+          )}
+
+          {/* Session score + study panel */}
+          {sessionScore !== null && !isCallActive && (
+            <div className="border border-slate-700/50 rounded-2xl p-4 space-y-4" style={{ background: 'var(--t-card)' }}>
+              <div className="flex items-center gap-4">
+                <ScoreRing score={sessionScore} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-white">Session Complete</p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {corrections.length === 0
+                      ? 'No corrections — flawless!'
+                      : `${corrections.length} correction${corrections.length > 1 ? 's' : ''} · ${history.filter(m => m.sender === 'user').length} messages`}
+                  </p>
                 </div>
               </div>
-            )}
-          </div>
-        )}
 
-        {/* ── Dialogue ── */}
-        <div className={`flex flex-col ${isCallActive ? 'flex-1 min-h-0' : ''}`}>
-          <div className="flex-none flex items-center justify-between pb-2">
+              {sessionScore === 100 && (
+                <div className="bg-emerald-950/40 border border-emerald-700/30 rounded-xl px-4 py-3 text-center">
+                  <p className="text-sm font-semibold text-emerald-300">Flawless session! Keep it up!</p>
+                </div>
+              )}
+
+              {studySummary.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+                    <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">Areas to Improve</span>
+                    <span className="ml-auto text-[10px] text-slate-600">
+                      {studySummary.reduce((s, i) => s + i.examples.length, 0)} · {studySummary.length} areas
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {studySummary.map((item) => (
+                      <button
+                        key={item.category}
+                        onClick={() => startFocusedCall(item.category, item.examples)}
+                        className="bg-slate-800/50 hover:bg-slate-700/60 border border-transparent hover:border-indigo-700/30 rounded-xl p-3 text-left transition-all group"
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs font-bold text-amber-300 capitalize leading-tight">
+                            {item.category.replace(/_/g, ' ')}
+                          </span>
+                          <span className="shrink-0 text-[9px] font-bold bg-amber-900/30 text-amber-500 px-1.5 py-0.5 rounded-full ml-1">
+                            {item.examples.length}×
+                          </span>
+                        </div>
+                        <div className="space-y-0.5 mb-2">
+                          {item.examples.slice(0, 2).map((ex, i) => (
+                            <p key={i} className="text-[10px] text-slate-500 truncate">
+                              <span className="text-rose-400/80 line-through">"{ex.said}"</span>
+                              <span className="text-slate-600 mx-0.5">→</span>
+                              <span className="text-emerald-400/80">"{ex.correct}"</span>
+                            </p>
+                          ))}
+                          {item.examples.length > 2 && (
+                            <p className="text-[9px] text-slate-600">+{item.examples.length - 2} more</p>
+                          )}
+                        </div>
+                        <p className="text-[9px] font-semibold text-indigo-500 group-hover:text-indigo-400 transition-colors">
+                          Practice →
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </aside>
+
+        {/* ── Right panel: Dialogue ── */}
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+
+          {/* Dialogue header */}
+          <div className="flex-none flex items-center justify-between px-4 md:px-6 py-3.5 border-b border-slate-800/40">
             <div className="flex items-center gap-2 text-slate-400">
               <MessageSquare className="w-3.5 h-3.5" />
               <span className="text-xs font-bold uppercase tracking-wider">Dialogue</span>
@@ -1105,99 +1349,140 @@ Be encouraging and concrete. Maximum 3 sentences total. Do NOT wait for the stud
             )}
           </div>
 
-          {showHistory && (
-            <div className={`space-y-4 pr-1 pb-2 overflow-y-auto ${isCallActive ? 'flex-1 min-h-0' : 'max-h-[45vh]'}`}>
-              {history.map((msg) => (
-                <div key={msg.id} className={`flex items-start gap-2.5 ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
+          {/* Messages area */}
+          <div className="flex-1 min-h-0 overflow-y-auto px-4 md:px-6 py-4">
+            {!showHistory ? null : history.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-slate-800/60 border border-slate-700/40 flex items-center justify-center">
+                  <MessageSquare className="w-5 h-5 text-slate-600" />
+                </div>
+                <p className="text-sm text-slate-600 max-w-[180px] leading-relaxed">Start a session to begin the conversation</p>
+              </div>
+            ) : (
+              <div className="space-y-4 pb-2">
+                {history.map((msg) => (
+                  <div key={msg.id} className={`flex items-start gap-2.5 ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
 
-                  {/* Avatar */}
-                  <div className="shrink-0 w-8 h-8 mt-0.5 rounded-full overflow-hidden border border-slate-700/50" style={{ clipPath: 'circle(50%)' }}>
-                    {msg.sender === 'luna' ? (
-                      <div style={{ transform: 'scale(0.333)', transformOrigin: 'top left', width: '96px', height: '96px' }}>
-                        <LunaAvatar status="idle" />
-                      </div>
-                    ) : (
-                      <div className="w-full h-full bg-indigo-700 flex items-center justify-center">
-                        <User className="w-4 h-4 text-white" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Bubble */}
-                  <div className={`min-w-0 max-w-[75%] rounded-2xl overflow-hidden ${
-                    msg.sender === 'user'
-                      ? msg.feedback
-                        ? 'border border-amber-600/30 rounded-tr-sm'
-                        : msg.positive
-                          ? 'border border-emerald-600/30 rounded-tr-sm'
-                          : 'bg-indigo-600/25 border border-indigo-500/25 rounded-tr-sm'
-                      : 'bg-[#141d2f] border border-slate-700/60 rounded-tl-sm'
-                  }`}>
-
-                    {/* Main text */}
-                    <div className={`px-3.5 pt-2.5 pb-2 ${
-                      msg.sender === 'user' && (msg.feedback || msg.positive) ? 'bg-indigo-600/20' : ''
-                    }`}>
-                      <div className={`flex items-start gap-2 ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
-                        <button
-                          onClick={() => replaySpeak(msg.text)}
-                          className={`shrink-0 mt-0.5 p-1 rounded-lg transition-all ${
-                            msg.sender === 'luna'
-                              ? 'text-indigo-400/60 hover:text-indigo-300 hover:bg-indigo-900/40'
-                              : 'text-slate-500 hover:text-slate-300 hover:bg-slate-700/40'
-                          }`}
-                          title="Listen again"
-                        >
-                          <Volume2 className="w-3.5 h-3.5" />
-                        </button>
-                        <p className="text-sm text-slate-100 leading-relaxed flex-1 min-w-0">{msg.text}</p>
-                      </div>
-                      <div className={`text-[9px] text-slate-600 mt-1 ${msg.sender === 'user' ? 'text-right' : ''}`}>
-                        {msg.timestamp}
-                      </div>
+                    {/* Avatar */}
+                    <div className="shrink-0 w-8 h-8 mt-0.5 rounded-full overflow-hidden border border-slate-700/50" style={{ clipPath: 'circle(50%)' }}>
+                      {msg.sender === 'luna' ? (
+                        <div style={{ transform: 'scale(0.333)', transformOrigin: 'top left', width: '96px', height: '96px' }}>
+                          <LunaAvatar status="idle" />
+                        </div>
+                      ) : (
+                        <div className="w-full h-full bg-indigo-700 flex items-center justify-center">
+                          <User className="w-4 h-4 text-white" />
+                        </div>
+                      )}
                     </div>
 
-                    {/* Positive sub-section */}
-                    {msg.positive && (
-                      <div className="border-t border-emerald-800/40 px-3.5 py-2.5 bg-emerald-950/25">
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <span className="text-emerald-400 font-bold text-sm">✓</span>
-                          <span className="text-xs font-bold text-emerald-400">Great</span>
-                          <span className="ml-auto text-[10px] text-emerald-600 capitalize">{msg.positive.category.replace(/_/g, ' ')}</span>
-                        </div>
-                        {msg.positive.explanation && (
-                          <p className="text-[11px] text-emerald-300/75 leading-relaxed">{msg.positive.explanation}</p>
-                        )}
-                      </div>
-                    )}
+                    {/* Bubble */}
+                    <div
+                      className={`min-w-0 rounded-2xl overflow-hidden ${
+                        msg.isReport
+                          ? 'max-w-[92%] border border-indigo-700/40 rounded-tl-sm'
+                          : msg.sender === 'user'
+                            ? msg.feedback
+                              ? 'max-w-[75%] border border-amber-600/30 rounded-tr-sm'
+                              : msg.positive
+                                ? 'max-w-[75%] border border-emerald-600/30 rounded-tr-sm'
+                                : 'max-w-[75%] bg-indigo-600/25 border border-indigo-500/25 rounded-tr-sm'
+                            : 'max-w-[75%] border border-slate-700/60 rounded-tl-sm'
+                      }`}
+                      style={msg.isReport ? { background: 'var(--t-report)' } : msg.sender === 'luna' ? { background: 'var(--t-bubble)' } : undefined}
+                    >
 
-                    {/* Correction sub-section */}
-                    {msg.feedback && (
-                      <div className="border-t border-amber-800/40 px-3.5 py-2.5 bg-amber-950/25">
-                        <div className="flex items-center gap-1.5 mb-2">
-                          <span className="text-amber-400 font-bold text-sm">✗</span>
-                          <span className="text-xs font-bold text-amber-400">Correction</span>
-                          <span className="ml-auto text-[10px] text-amber-600 capitalize">{msg.feedback.category.replace(/_/g, ' ')}</span>
-                        </div>
-                        <div className="space-y-1 mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-slate-500 w-7 shrink-0">Said</span>
-                            <span className="text-xs text-rose-400 line-through">"{msg.feedback.said}"</span>
+                      {msg.isReport ? (
+                        <div className="px-4 pt-3 pb-4">
+                          <div className="flex items-center gap-2 mb-3 pb-2 border-b border-indigo-700/30">
+                            <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider">Session Report</span>
+                            <span className="text-[9px] text-slate-500">{msg.timestamp}</span>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-slate-500 w-7 shrink-0">Use</span>
-                            <span className="text-xs text-emerald-400 font-semibold">"{msg.feedback.correct}"</span>
+                          <div className="space-y-1">
+                            {msg.text.split('\n').map((line, i) => {
+                              if (!line.trim()) return <div key={i} className="h-2" />;
+                              if (/^[📊❌✅📚🎯💬🏆🌟]/.test(line)) return (
+                                <p key={i} className="text-sm font-bold text-indigo-300 mt-3 mb-0.5">{line}</p>
+                              );
+                              if (/^•/.test(line)) return (
+                                <p key={i} className="text-xs text-slate-300 leading-relaxed pl-3">{line}</p>
+                              );
+                              if (/^\d+\./.test(line)) return (
+                                <p key={i} className="text-xs text-slate-300 leading-relaxed pl-3">{line}</p>
+                              );
+                              if (/^(Original|Correct|Rule|Instead of|Say|Level|Reasoning|Strong areas|Needs improvement):/.test(line)) return (
+                                <p key={i} className="text-xs text-slate-400 leading-relaxed"><span className="text-slate-500 font-semibold">{line.split(':')[0]}:</span>{line.slice(line.indexOf(':') + 1)}</p>
+                              );
+                              return <p key={i} className="text-xs text-slate-400 leading-relaxed">{line}</p>;
+                            })}
                           </div>
                         </div>
-                        <p className="text-[10px] text-slate-400 italic leading-relaxed">{msg.feedback.explanation}</p>
+                      ) : (
+                      <>
+                      <div className={`px-3.5 pt-2.5 pb-2 ${
+                        msg.sender === 'user' && (msg.feedback || msg.positive) ? 'bg-indigo-600/20' : ''
+                      }`}>
+                        <div className={`flex items-start gap-2 ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
+                          <button
+                            onClick={() => replaySpeak(msg.text)}
+                            className={`shrink-0 mt-0.5 p-1 rounded-lg transition-all ${
+                              msg.sender === 'luna'
+                                ? 'text-indigo-400/60 hover:text-indigo-300 hover:bg-indigo-900/40'
+                                : 'text-slate-500 hover:text-slate-300 hover:bg-slate-700/40'
+                            }`}
+                            title="Listen again"
+                          >
+                            <Volume2 className="w-3.5 h-3.5" />
+                          </button>
+                          <p className="text-sm text-slate-100 leading-relaxed flex-1 min-w-0">{msg.text}</p>
+                        </div>
+                        <div className={`text-[9px] text-slate-600 mt-1 ${msg.sender === 'user' ? 'text-right' : ''}`}>
+                          {msg.timestamp}
+                        </div>
                       </div>
-                    )}
+
+                      {msg.positive && (
+                        <div className="border-t border-emerald-800/40 px-3.5 py-2.5 bg-emerald-950/25">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className="text-emerald-400 font-bold text-sm">✓</span>
+                            <span className="text-xs font-bold text-emerald-400">Great</span>
+                            <span className="ml-auto text-[10px] text-emerald-600 capitalize">{msg.positive.category.replace(/_/g, ' ')}</span>
+                          </div>
+                          {msg.positive.explanation && (
+                            <p className="text-[11px] text-emerald-300/75 leading-relaxed">{msg.positive.explanation}</p>
+                          )}
+                        </div>
+                      )}
+
+                      {msg.feedback && (
+                        <div className="border-t border-amber-800/40 px-3.5 py-2.5 bg-amber-950/25">
+                          <div className="flex items-center gap-1.5 mb-2">
+                            <span className="text-amber-400 font-bold text-sm">✗</span>
+                            <span className="text-xs font-bold text-amber-400">Correction</span>
+                            <span className="ml-auto text-[10px] text-amber-600 capitalize">{msg.feedback.category.replace(/_/g, ' ')}</span>
+                          </div>
+                          <div className="space-y-1 mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-bold text-slate-500 w-7 shrink-0">Said</span>
+                              <span className="text-xs text-rose-400 line-through">"{msg.feedback.said}"</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-bold text-slate-500 w-7 shrink-0">Use</span>
+                              <span className="text-xs text-emerald-400 font-semibold">"{msg.feedback.correct}"</span>
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-slate-400 italic leading-relaxed">{msg.feedback.explanation}</p>
+                        </div>
+                      )}
+                      </>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
-              <div ref={historyEndRef} />
-            </div>
-          )}
+                ))}
+                <div ref={historyEndRef} />
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
