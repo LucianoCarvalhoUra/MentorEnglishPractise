@@ -1713,7 +1713,7 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
 
           </div>
           <div className="max-w-4xl mx-auto mt-3 pt-3 border-t border-slate-700/30 flex justify-end">
-            <span className="text-[10px] text-slate-600 font-mono">v1.2.4</span>
+            <span className="text-[10px] text-slate-600 font-mono">v1.2.5</span>
           </div>
 
           {/* Mobile done button */}

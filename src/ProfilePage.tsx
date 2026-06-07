@@ -90,6 +90,7 @@ export function ProfilePage({
   const [isEditingName, setIsEditingName] = useState(false);
   const [isSaving, setIsSaving]       = useState(false);
   const [saveOk, setSaveOk]           = useState(false);
+  const [expandedSession, setExpandedSession] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handlePhotoClick = () => fileInputRef.current?.click();
@@ -519,32 +520,52 @@ export function ProfilePage({
               <span className="text-sm font-bold text-white">Session History</span>
               <span className="ml-auto text-[10px] text-slate-600">last {Math.min(5, recentSessions.length)} sessions</span>
             </div>
-            <div className="space-y-2.5">
+            <div className="space-y-2">
               {recentSessions.slice(0, 5).map((s) => {
-                const date = new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                const date = new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
                 const score = s.overall_score;
+                const isExpanded = expandedSession === s.id;
+                const hasReport = Boolean(s.report_text);
                 return (
-                  <div key={s.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-800/40">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold text-white shrink-0"
-                      style={{ background: score !== null ? scoreColor(score / 10) + '33' : '#1e293b', color: score !== null ? scoreColor(score / 10) : '#64748b' }}>
-                      {score ?? '?'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-slate-300">{date}</span>
-                        {score !== null && (
-                          <div className="flex items-center gap-1">
-                            <div className="h-1.5 w-16 rounded-full bg-slate-700 overflow-hidden">
-                              <div className="h-full rounded-full" style={{ width: `${score}%`, background: scoreColor(score / 10) }} />
+                  <div key={s.id} className="rounded-xl overflow-hidden border border-slate-700/30">
+                    {/* Row header — click to expand if report available */}
+                    <button
+                      onClick={() => hasReport && setExpandedSession(isExpanded ? null : s.id)}
+                      className={`w-full flex items-center gap-3 p-2.5 text-left transition-colors ${hasReport ? 'hover:bg-slate-700/30 cursor-pointer' : 'cursor-default'} bg-slate-800/40`}
+                    >
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+                        style={{ background: score !== null ? scoreColor(score / 10) + '33' : '#1e293b', color: score !== null ? scoreColor(score / 10) : '#64748b' }}>
+                        {score ?? '?'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-slate-300">{date}</span>
+                          {score !== null && (
+                            <div className="flex items-center gap-1.5">
+                              <div className="h-1.5 w-16 rounded-full bg-slate-700 overflow-hidden">
+                                <div className="h-full rounded-full" style={{ width: `${score}%`, background: scoreColor(score / 10) }} />
+                              </div>
+                              <span className="text-[10px] font-semibold" style={{ color: scoreColor(score / 10) }}>{score}</span>
                             </div>
-                            <span className="text-[10px] font-semibold" style={{ color: scoreColor(score / 10) }}>{score}</span>
-                          </div>
+                          )}
+                        </div>
+                        {s.next_focus && (
+                          <p className="text-[10px] text-slate-600 truncate mt-0.5 text-left">Focus: {s.next_focus}</p>
                         )}
                       </div>
-                      {s.next_focus && (
-                        <p className="text-[10px] text-slate-600 truncate mt-0.5">Focus: {s.next_focus}</p>
+                      {hasReport && (
+                        <ChevronRight className={`w-3.5 h-3.5 text-slate-600 shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                       )}
-                    </div>
+                    </button>
+
+                    {/* Expanded report */}
+                    {isExpanded && s.report_text && (
+                      <div className="px-4 py-3 border-t border-slate-700/30 bg-slate-900/40">
+                        <pre className="text-[11px] text-slate-300 whitespace-pre-wrap leading-relaxed font-sans">
+                          {s.report_text}
+                        </pre>
+                      </div>
+                    )}
                   </div>
                 );
               })}

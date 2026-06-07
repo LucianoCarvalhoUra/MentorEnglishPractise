@@ -46,6 +46,7 @@ export interface LearningSession {
   pronunciation_score: number | null;
   summary: string | null;
   next_focus: string | null;
+  report_text: string | null;
   created_at: string;
 }
 
@@ -82,6 +83,7 @@ export interface SessionScores {
   pronunciation: number | null;
   nextFocus: string;
   summary: string;
+  reportText: string;
 }
 
 // ── Profile ────────────────────────────────────────────────────────────────────
@@ -165,6 +167,7 @@ export async function saveSessionData(studentId: string, scores: SessionScores):
     confidence_score: scores.confidence,
     pronunciation_score: scores.pronunciation,
     summary: scores.summary || null,
+    report_text: scores.reportText || null,
     next_focus: scores.nextFocus || null,
   });
 
@@ -273,6 +276,7 @@ export function parseReportScores(reportText: string): SessionScores {
     pronunciation: skill('Pronunciation'),
     nextFocus:     nextFocusMatch ? nextFocusMatch[1].trim() : '',
     summary:       summaryMatch  ? summaryMatch[1].trim()    : '',
+    reportText,
   };
 }
 
