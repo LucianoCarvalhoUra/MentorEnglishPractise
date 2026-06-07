@@ -458,7 +458,6 @@ export default function App() {
     clearTimeout(silenceTimeoutRef.current);
     silenceTimeoutRef.current = setTimeout(() => {
       endCall();
-      alert("Call disconnected due to silence.");
     }, 60000);
   };
 
@@ -1111,6 +1110,16 @@ Stats: ${userMsgs} student messages in this session.`;
     }
   };
 
+  // Called by the End button and any UI-triggered termination.
+  // Generates the performance report if the session has history; otherwise ends immediately.
+  const handleEndCall = () => {
+    if (historyRef.current.length > 0) {
+      generateSessionReport();
+    } else {
+      endCall();
+    }
+  };
+
   const startFocusedCall = (topic: string, examples: Array<{said: string; correct: string}>) => {
     setFocusTopic(topic);
     setFocusExamples(examples);
@@ -1265,7 +1274,7 @@ Stats: ${userMsgs} student messages in this session.`;
 
           </div>
           <div className="max-w-4xl mx-auto mt-3 pt-3 border-t border-slate-700/30 flex justify-end">
-            <span className="text-[10px] text-slate-600 font-mono">v1.0.2</span>
+            <span className="text-[10px] text-slate-600 font-mono">v1.0.3</span>
           </div>
         </div>
       )}
@@ -1294,7 +1303,7 @@ Stats: ${userMsgs} student messages in this session.`;
                   </div>
                   <span className="text-[10px] text-indigo-400 font-mono capitalize">{status}</span>
                 </div>
-                <button onClick={endCall}
+                <button onClick={handleEndCall}
                   className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-1 transition-all">
                   <PhoneOff className="w-3 h-3" />
                   End
