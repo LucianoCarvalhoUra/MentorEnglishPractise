@@ -103,14 +103,14 @@ async function callLLM(systemPrompt: string, messages: LLMMessage[], groqModel =
 }
 
 const THEMES = {
-  midnight: { name: 'Blue',    swatch: '#3b82f6', main: '#09162c', panelGlass: 'rgba(9,22,44,0.97)',   card: '#0e1e3a', bubble: '#122040', report: '#0c1830' },
-  carbon:   { name: 'Slate',   swatch: '#94a3b8', main: '#0e0f14', panelGlass: 'rgba(14,15,20,0.97)',  card: '#181a22', bubble: '#1a1c26', report: '#131518' },
-  forest:   { name: 'Green',   swatch: '#22c55e', main: '#0a1c0e', panelGlass: 'rgba(10,28,14,0.97)',  card: '#102010', bubble: '#122214', report: '#0c1c10' },
-  violet:   { name: 'Purple',  swatch: '#a855f7', main: '#0e0830', panelGlass: 'rgba(14,8,48,0.97)',   card: '#160a3c', bubble: '#180c40', report: '#120838' },
-  ember:    { name: 'Orange',  swatch: '#f97316', main: '#1c0a00', panelGlass: 'rgba(28,10,0,0.97)',   card: '#2a1000', bubble: '#281000', report: '#1e0c00' },
-  ocean:    { name: 'Cyan',    swatch: '#06b6d4', main: '#041428', panelGlass: 'rgba(4,20,40,0.97)',   card: '#081e34', bubble: '#0a2038', report: '#061828' },
-  rose:     { name: 'Red',     swatch: '#ef4444', main: '#1e0808', panelGlass: 'rgba(30,8,8,0.97)',    card: '#280c0c', bubble: '#241010', report: '#1c0c0c' },
-  amber:    { name: 'Yellow',  swatch: '#eab308', main: '#181200', panelGlass: 'rgba(24,18,0,0.97)',   card: '#241a00', bubble: '#201600', report: '#1c1200' },
+  midnight: { name: 'Blue',   swatch: '#3b82f6', main: '#0c1e3a', panelGlass: 'rgba(12,30,58,0.97)',  card: '#122244', bubble: '#14264a', report: '#0e1c38' },
+  carbon:   { name: 'Slate',  swatch: '#94a3b8', main: '#111318', panelGlass: 'rgba(17,19,24,0.97)',  card: '#1a1e26', bubble: '#1c2028', report: '#141620' },
+  forest:   { name: 'Green',  swatch: '#22c55e', main: '#0d2814', panelGlass: 'rgba(13,40,20,0.97)',  card: '#142e1a', bubble: '#162e18', report: '#0e2412' },
+  violet:   { name: 'Purple', swatch: '#a855f7', main: '#130840', panelGlass: 'rgba(19,8,64,0.97)',   card: '#1a0c50', bubble: '#1c0e52', report: '#10063c' },
+  ember:    { name: 'Orange', swatch: '#f97316', main: '#281000', panelGlass: 'rgba(40,16,0,0.97)',   card: '#301600', bubble: '#341800', report: '#221000' },
+  ocean:    { name: 'Cyan',   swatch: '#06b6d4', main: '#052030', panelGlass: 'rgba(5,32,48,0.97)',   card: '#082a3c', bubble: '#0a2e40', report: '#061c2c' },
+  rose:     { name: 'Red',    swatch: '#ef4444', main: '#2c0c0c', panelGlass: 'rgba(44,12,12,0.97)',  card: '#381010', bubble: '#3c1212', report: '#260c0c' },
+  amber:    { name: 'Yellow', swatch: '#eab308', main: '#221800', panelGlass: 'rgba(34,24,0,0.97)',   card: '#2c2000', bubble: '#302400', report: '#1e1600' },
 } as const;
 type ThemeName = keyof typeof THEMES;
 
@@ -1089,22 +1089,6 @@ Stats: ${userMsgs} student messages in this session.`;
               </div>
             </div>
 
-            <div>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Timing</p>
-              <div className="flex gap-1.5">
-                {(['realtime', 'summary', 'adaptive'] as const).map(t => (
-                  <button key={t} onClick={() => setSettings(s => ({ ...s, correctionTiming: t }))}
-                    disabled={settings.correctionLevel === 'off'}
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-30 ${
-                      settings.correctionTiming === t && settings.correctionLevel !== 'off'
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                    }`}>
-                    {t === 'realtime' ? 'Live' : t === 'summary' ? 'Summary' : 'Adaptive'}
-                  </button>
-                ))}
-              </div>
-            </div>
 
             <div>
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Speed</p>
