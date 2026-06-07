@@ -1366,7 +1366,20 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
                 const isFemale = femaleKw.some(k => n.includes(k));
                 return isLang && (isFemale || !isMale); // keep confirmed-female + neutral
               }).slice(0, 8);
-              const shortName = (name: string) => name.replace(/\s*\(.*?\)\s*/g, '').replace('Microsoft ', '').replace('Google ', '').trim().split(' ').slice(0, 2).join(' ');
+              const sn = (name: string) =>
+                name
+                  .replace(/\s*\(.*?\)\s*/g, '')    // remove (United States) etc.
+                  .replace(/\s*[-–]\s*\S.*$/, '')    // remove " - English..." etc.
+                  .replace(/^Microsoft\s+/i, '')
+                  .replace(/^Google\s+/i, '')
+                  .trim()
+                  .split(/\s+/).slice(0, 2).join(' ');
+              const genericSet = new Set(['chrome os', 'chrome', 'us english', 'uk english', 'english', 'os']);
+              const assignedNames = ['Sofia', 'Emma', 'Grace', 'Clara', 'Nina', 'Lily', 'Maya', 'Ava'];
+              const displayName = (v: SpeechSynthesisVoice, i: number) => {
+                const s = sn(v.name);
+                return genericSet.has(s.toLowerCase()) ? assignedNames[i % assignedNames.length] : s;
+              };
               return langVoices.length > 0 ? (
                 <div className="col-span-2 md:col-span-4">
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Voice</p>
@@ -1381,7 +1394,7 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
                       className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                         settings.voiceName === '' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
                       }`}>Auto</button>
-                    {langVoices.map(v => (
+                    {langVoices.map((v, i) => (
                       <button key={v.name}
                         onClick={() => {
                           setSettings(s => ({ ...s, voiceName: v.name }));
@@ -1394,7 +1407,7 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
                         {previewingVoice === v.name && (
                           <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
                         )}
-                        {shortName(v.name)}
+                        {displayName(v, i)}
                       </button>
                     ))}
                   </div>
@@ -1429,7 +1442,7 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
 
           </div>
           <div className="max-w-4xl mx-auto mt-3 pt-3 border-t border-slate-700/30 flex justify-end">
-            <span className="text-[10px] text-slate-600 font-mono">v1.1.2</span>
+            <span className="text-[10px] text-slate-600 font-mono">v1.1.3</span>
           </div>
         </div>
       )}
