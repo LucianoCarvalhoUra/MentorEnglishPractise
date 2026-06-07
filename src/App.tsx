@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { Phone, PhoneOff, Sparkles, MessageSquare, Heart, Globe, BookOpen, X, Mic, MicOff, ChevronUp, Volume2, User, Settings, FileText, CheckCircle2 } from 'lucide-react';
+import { Phone, PhoneOff, Sparkles, MessageSquare, Heart, Globe, BookOpen, X, Mic, MicOff, ChevronUp, Volume2, User, Settings, FileText, CheckCircle2, Copy } from 'lucide-react';
 
 // Provider cascade: Groq (fastest, free) → OpenRouter (free) → Gemini (fallback)
 const GROQ_KEY: string | undefined = import.meta.env.VITE_GROQ_API_KEY;
@@ -304,6 +304,7 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [previousReport, setPreviousReport] = useState('');
   const [showReportInput, setShowReportInput] = useState(false);
+  const [copiedReportId, setCopiedReportId] = useState<string | null>(null);
 
   // Study system
   const [corrections, setCorrections] = useState<Correction[]>([]);
@@ -1378,7 +1379,7 @@ Keep the comparison qualitative and specific. Do not compare raw scores directly
 
           </div>
           <div className="max-w-4xl mx-auto mt-3 pt-3 border-t border-slate-700/30 flex justify-end">
-            <span className="text-[10px] text-slate-600 font-mono">v1.0.5</span>
+            <span className="text-[10px] text-slate-600 font-mono">v1.0.6</span>
           </div>
         </div>
       )}
@@ -1699,6 +1700,27 @@ Keep the comparison qualitative and specific. Do not compare raw scores directly
                           <div className="flex items-center gap-2 mb-3 pb-2 border-b border-indigo-700/30">
                             <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider">Session Report</span>
                             <span className="text-[9px] text-slate-500">{msg.timestamp}</span>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(msg.text).catch(() => {});
+                                setCopiedReportId(msg.id);
+                                setTimeout(() => setCopiedReportId(null), 2000);
+                              }}
+                              className="ml-auto flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium transition-all hover:bg-indigo-800/40"
+                              title="Copy report to clipboard"
+                            >
+                              {copiedReportId === msg.id ? (
+                                <>
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                  <span className="text-emerald-400">Copied!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3 text-slate-400" />
+                                  <span className="text-slate-400">Copy</span>
+                                </>
+                              )}
+                            </button>
                           </div>
                           <div className="space-y-1">
                             {msg.text.split('\n').map((line, i) => {
