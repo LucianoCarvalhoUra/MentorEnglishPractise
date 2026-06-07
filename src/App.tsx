@@ -103,14 +103,14 @@ async function callLLM(systemPrompt: string, messages: LLMMessage[], groqModel =
 }
 
 const THEMES = {
-  midnight: { name: 'Blue',   swatch: '#3b82f6', main: '#0c1e3a', panelGlass: 'rgba(12,30,58,0.97)',  card: '#122244', bubble: '#14264a', report: '#0e1c38' },
+  midnight: { name: 'Blue',   swatch: '#3b82f6', main: '#0a2550', panelGlass: 'rgba(10,37,80,0.97)',  card: '#0e2e60', bubble: '#10326a', report: '#081c46' },
   carbon:   { name: 'Slate',  swatch: '#94a3b8', main: '#111318', panelGlass: 'rgba(17,19,24,0.97)',  card: '#1a1e26', bubble: '#1c2028', report: '#141620' },
-  forest:   { name: 'Green',  swatch: '#22c55e', main: '#0d2814', panelGlass: 'rgba(13,40,20,0.97)',  card: '#142e1a', bubble: '#162e18', report: '#0e2412' },
-  violet:   { name: 'Purple', swatch: '#a855f7', main: '#130840', panelGlass: 'rgba(19,8,64,0.97)',   card: '#1a0c50', bubble: '#1c0e52', report: '#10063c' },
-  ember:    { name: 'Orange', swatch: '#f97316', main: '#281000', panelGlass: 'rgba(40,16,0,0.97)',   card: '#301600', bubble: '#341800', report: '#221000' },
-  ocean:    { name: 'Cyan',   swatch: '#06b6d4', main: '#052030', panelGlass: 'rgba(5,32,48,0.97)',   card: '#082a3c', bubble: '#0a2e40', report: '#061c2c' },
-  rose:     { name: 'Red',    swatch: '#ef4444', main: '#2c0c0c', panelGlass: 'rgba(44,12,12,0.97)',  card: '#381010', bubble: '#3c1212', report: '#260c0c' },
-  amber:    { name: 'Yellow', swatch: '#eab308', main: '#221800', panelGlass: 'rgba(34,24,0,0.97)',   card: '#2c2000', bubble: '#302400', report: '#1e1600' },
+  forest:   { name: 'Green',  swatch: '#22c55e', main: '#0a4d10', panelGlass: 'rgba(10,77,16,0.97)',  card: '#0e5c14', bubble: '#106018', report: '#084210' },
+  violet:   { name: 'Purple', swatch: '#a855f7', main: '#1e0a5e', panelGlass: 'rgba(30,10,94,0.97)',  card: '#260c70', bubble: '#280e76', report: '#180850' },
+  ember:    { name: 'Orange', swatch: '#f97316', main: '#7c2e00', panelGlass: 'rgba(124,46,0,0.97)',  card: '#8c3600', bubble: '#923a00', report: '#6c2800' },
+  ocean:    { name: 'Cyan',   swatch: '#06b6d4', main: '#04385a', panelGlass: 'rgba(4,56,90,0.97)',   card: '#064468', bubble: '#08486e', report: '#042e4c' },
+  rose:     { name: 'Red',    swatch: '#ef4444', main: '#7a0e0e', panelGlass: 'rgba(122,14,14,0.97)', card: '#8a1212', bubble: '#901616', report: '#680c0c' },
+  amber:    { name: 'Yellow', swatch: '#eab308', main: '#5e4600', panelGlass: 'rgba(94,70,0,0.97)',   card: '#6e5200', bubble: '#725600', report: '#503c00' },
 } as const;
 type ThemeName = keyof typeof THEMES;
 
