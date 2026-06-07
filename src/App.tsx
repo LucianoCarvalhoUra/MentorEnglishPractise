@@ -1565,18 +1565,6 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
               <option value="de-DE">German</option>
             </select>
           </div>
-          <button
-            onClick={() => setShowSettings(v => !v)}
-            disabled={isCallActive}
-            className={`p-2 rounded-xl border transition-all disabled:opacity-40 ${
-              showSettings
-                ? 'bg-indigo-600/30 border-indigo-500/40 text-indigo-300'
-                : 'bg-slate-800/80 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-700/60'
-            }`}
-            title="Settings"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
         </div>
       </header>
 
@@ -1725,7 +1713,7 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
 
           </div>
           <div className="max-w-4xl mx-auto mt-3 pt-3 border-t border-slate-700/30 flex justify-end">
-            <span className="text-[10px] text-slate-600 font-mono">v1.2.3</span>
+            <span className="text-[10px] text-slate-600 font-mono">v1.2.4</span>
           </div>
 
           {/* Mobile done button */}
