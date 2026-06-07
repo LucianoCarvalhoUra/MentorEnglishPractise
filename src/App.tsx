@@ -721,11 +721,15 @@ One phrase max: "Nice." / "Well said." / "Great detail there." Never interrupt t
         : '';
 
       const learningContextBlock = buildLearningContextBlock(learningContextRef.current);
+      const studentName = learningContextRef.current?.profile.display_name?.trim();
+      const studentNameBlock = studentName
+        ? `\n# Student Name\nThe student's name is ${studentName}. Address them by name naturally (but not every turn — only occasionally, when it feels warm and natural). Always treat them respectfully and warmly.\n`
+        : '';
 
       const systemPrompt = `
 # Identity
 You are Luna, a warm ${languageNames[targetLanguage]} conversation partner for Brazilian students. You feel like a friendly, patient private tutor — not a teacher or examiner.
-${focusLine}
+${studentNameBlock}${focusLine}
 ${learningContextBlock}
 ${previousReportBlock}
 
@@ -975,7 +979,9 @@ ${positiveBlock}
     if (!GROQ_KEY && !OPENROUTER_KEY && !GEMINI_KEY) { resumeListening(); return; }
     setStatus('analyzing');
     const languageNames: Record<string, string> = { 'en-US': 'English', 'es-ES': 'Spanish', 'fr-FR': 'French', 'de-DE': 'German' };
-    const systemPrompt = `You are Luna, a ${languageNames[targetLanguage]} tutor. Say a single short greeting (max 12 words), then ask one simple question. No sub-clauses, no "I'm excited to...", no lists. Example: "Hey! I'm Luna — what's on your mind today?"`;
+    const sName = learningContextRef.current?.profile.display_name?.trim();
+    const nameHint = sName ? ` The student's name is ${sName} — greet them by name.` : '';
+    const systemPrompt = `You are Luna, a ${languageNames[targetLanguage]} tutor. Say a single short greeting (max 12 words), then ask one simple question. No sub-clauses, no "I'm excited to...", no lists. Example: "Hey! I'm Luna — what's on your mind today?"${nameHint}`;
 
     try {
       const responseText = await callLLM(systemPrompt, []);
@@ -1414,6 +1420,9 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
           onClose={() => setShowProfile(false)}
           onOpenSettings={() => setShowSettings(true)}
           onSignOut={handleSignOut}
+          onProfileUpdated={(name, avatar) => {
+            setStudentProfile(p => p ? { ...p, display_name: name, avatar_data: avatar } : p);
+          }}
         />
       )}
 
@@ -1475,11 +1484,15 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
               <button
                 onClick={() => setShowProfileMenu(v => !v)}
                 className="flex items-center gap-1.5 bg-slate-800/80 px-2.5 py-1.5 rounded-xl border border-slate-700/60 hover:border-indigo-500/40 transition-colors">
-                <div className="w-5 h-5 rounded-full bg-indigo-600 flex items-center justify-center shrink-0">
-                  <span className="text-[9px] font-bold text-white">{studentProfile.email[0].toUpperCase()}</span>
+                <div className="w-5 h-5 rounded-full bg-indigo-600 flex items-center justify-center shrink-0 overflow-hidden">
+                  {studentProfile.avatar_data ? (
+                    <img src={studentProfile.avatar_data} alt="avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-[9px] font-bold text-white">{studentProfile.email[0].toUpperCase()}</span>
+                  )}
                 </div>
                 <span className="text-xs text-slate-300 font-medium hidden sm:block max-w-[80px] truncate">
-                  {studentProfile.email.split('@')[0]}
+                  {studentProfile.display_name ?? studentProfile.email.split('@')[0]}
                 </span>
                 {learningContext?.passport && (
                   <span className="text-[9px] font-bold text-indigo-400 hidden sm:block">
@@ -1691,7 +1704,7 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
 
           </div>
           <div className="max-w-4xl mx-auto mt-3 pt-3 border-t border-slate-700/30 flex justify-end">
-            <span className="text-[10px] text-slate-600 font-mono">v1.2.1</span>
+            <span className="text-[10px] text-slate-600 font-mono">v1.2.2</span>
           </div>
 
           {/* Mobile done button */}

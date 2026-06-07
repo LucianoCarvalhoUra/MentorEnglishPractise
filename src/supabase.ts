@@ -15,6 +15,7 @@ export interface StudentProfile {
   id: string;
   email: string;
   display_name: string | null;
+  avatar_data: string | null;
   native_language: string;
   current_level: string;
   target_level: string;
@@ -84,6 +85,14 @@ export interface SessionScores {
 }
 
 // ── Profile ────────────────────────────────────────────────────────────────────
+
+export async function updateProfile(
+  id: string,
+  updates: { display_name?: string; avatar_data?: string },
+): Promise<void> {
+  if (!supabase) return;
+  await supabase.from('student_profiles').update(updates).eq('id', id);
+}
 
 export async function getOrCreateProfile(email: string): Promise<StudentProfile> {
   if (!supabase) throw new Error('Supabase not configured');

@@ -1,5 +1,7 @@
-import { X, TrendingUp, Award, BookOpen, Target, Star, Clock, BarChart2, Zap, ChevronRight } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { X, TrendingUp, Award, BookOpen, Target, Star, Clock, BarChart2, Zap, ChevronRight, Camera, Check, Pencil } from 'lucide-react';
 import type { LearningContext, LearningSession } from './supabase';
+import { updateProfile } from './supabase';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface ProfilePageProps {
@@ -11,6 +13,7 @@ interface ProfilePageProps {
   onClose: () => void;
   onOpenSettings: () => void;
   onSignOut: () => void;
+  onProfileUpdated: (displayName: string | null, avatarData: string | null) => void;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -53,11 +56,73 @@ function scoreLabel(v: number) {
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
+// ── Image compress helper ─────────────────────────────────────────────────────
+async function compressImage(file: File, size = 128): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext('2d')!;
+      // Crop to square from center
+      const min = Math.min(img.width, img.height);
+      const sx = (img.width - min) / 2;
+      const sy = (img.height - min) / 2;
+      ctx.drawImage(img, sx, sy, min, min, 0, 0, size, size);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', 0.75));
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
 export function ProfilePage({
   context, bg, card, panelGlass,
-  totalCorrections, onClose, onOpenSettings, onSignOut,
+  totalCorrections, onClose, onOpenSettings, onSignOut, onProfileUpdated,
 }: ProfilePageProps) {
   const { profile, passport, recentSessions, gaps, strengths } = context;
+
+  // ── Editable profile state ──
+  const [displayName, setDisplayName] = useState(profile.display_name ?? '');
+  const [avatarData, setAvatarData]   = useState<string | null>(profile.avatar_data ?? null);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [isSaving, setIsSaving]       = useState(false);
+  const [saveOk, setSaveOk]           = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePhotoClick = () => fileInputRef.current?.click();
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const compressed = await compressImage(file);
+      setAvatarData(compressed);
+      // Save immediately on photo change
+      setIsSaving(true);
+      await updateProfile(profile.id, { avatar_data: compressed });
+      onProfileUpdated(displayName || null, compressed);
+    } catch { /* ignore */ } finally {
+      setIsSaving(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleSaveName = async () => {
+    setIsSaving(true);
+    try {
+      const name = displayName.trim() || null;
+      await updateProfile(profile.id, { display_name: name ?? undefined });
+      onProfileUpdated(name, avatarData);
+      setSaveOk(true);
+      setIsEditingName(false);
+      setTimeout(() => setSaveOk(false), 2000);
+    } catch { /* ignore */ } finally {
+      setIsSaving(false);
+    }
+  };
 
   const sessions    = passport?.sessions_completed ?? 0;
   const words       = passport?.words_learned ?? 0;
@@ -176,29 +241,98 @@ export function ProfilePage({
       <div className="max-w-2xl mx-auto px-4 py-5 space-y-4 pb-10">
 
         {/* ── Profile Header ───────────────────────────────────────────────── */}
-        <div className={`${sectionCard} flex items-center gap-4`} style={{ background: card }}>
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold text-white shrink-0"
-            style={{ background: `linear-gradient(135deg, ${LEVEL_COLOR[level] ?? '#6366f1'}, ${LEVEL_COLOR[targetLevel] ?? '#8b5cf6'})` }}>
-            {profile.email[0].toUpperCase()}
-          </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="font-bold text-white text-base leading-none mb-1 truncate">
-              {profile.display_name ?? profile.email.split('@')[0]}
-            </h2>
-            <p className="text-xs text-slate-400 mb-2">{profile.email}</p>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white"
-                style={{ background: LEVEL_COLOR[level] ?? '#6366f1' }}>
-                {level} — Current
-              </span>
-              <span className="text-[10px] font-bold text-indigo-400 border border-indigo-500/40 px-2 py-0.5 rounded-full">
-                Target: {targetLevel}
-              </span>
+        <div className={`${sectionCard} flex flex-col gap-4`} style={{ background: card }}>
+
+          {/* Avatar + basic info row */}
+          <div className="flex items-center gap-4">
+            {/* Clickable avatar */}
+            <div className="relative shrink-0 group">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handlePhotoChange}
+              />
+              <button
+                onClick={handlePhotoClick}
+                className="w-16 h-16 rounded-2xl overflow-hidden flex items-center justify-center relative focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                style={{ background: `linear-gradient(135deg, ${LEVEL_COLOR[level] ?? '#6366f1'}, ${LEVEL_COLOR[targetLevel] ?? '#8b5cf6'})` }}
+                title="Click to change photo"
+              >
+                {avatarData ? (
+                  <img src={avatarData} alt="profile" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-2xl font-bold text-white">{profile.email[0].toUpperCase()}</span>
+                )}
+                {/* Hover overlay */}
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Camera className="w-5 h-5 text-white" />
+                </div>
+              </button>
+              {isSaving && (
+                <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-slate-900 flex items-center justify-center">
+                  <div className="w-3 h-3 rounded-full border border-indigo-400 border-t-transparent animate-spin" />
+                </div>
+              )}
+              {saveOk && (
+                <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-600 flex items-center justify-center">
+                  <Check className="w-2.5 h-2.5 text-white" />
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-slate-400 mb-2">{profile.email}</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white"
+                  style={{ background: LEVEL_COLOR[level] ?? '#6366f1' }}>
+                  {level} — Current
+                </span>
+                <span className="text-[10px] font-bold text-indigo-400 border border-indigo-500/40 px-2 py-0.5 rounded-full">
+                  Target: {targetLevel}
+                </span>
+              </div>
+              <p className="text-[9px] text-slate-600 mt-1.5">Member since {memberSince}</p>
             </div>
           </div>
-          <div className="text-right shrink-0">
-            <p className="text-[9px] text-slate-600 uppercase tracking-wider">Member since</p>
-            <p className="text-[10px] text-slate-400 font-medium">{memberSince}</p>
+
+          {/* Editable name row */}
+          <div className="border-t border-slate-700/40 pt-3">
+            <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1.5">Your name (Luna will use it)</p>
+            {isEditingName ? (
+              <div className="flex items-center gap-2">
+                <input
+                  autoFocus
+                  type="text"
+                  value={displayName}
+                  onChange={e => setDisplayName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') setIsEditingName(false); }}
+                  placeholder="Your first name..."
+                  maxLength={40}
+                  className="flex-1 px-3 py-2 rounded-xl text-sm text-slate-200 placeholder-slate-600 border border-slate-600/60 focus:outline-none focus:border-indigo-500/60 transition-colors"
+                  style={{ background: 'rgba(15,23,42,0.6)' }}
+                />
+                <button
+                  onClick={handleSaveName}
+                  disabled={isSaving}
+                  className="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-xs font-semibold transition-colors flex items-center gap-1">
+                  {isSaving ? <div className="w-3 h-3 rounded-full border border-white/30 border-t-white animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  Save
+                </button>
+                <button onClick={() => setIsEditingName(false)} className="px-2 py-2 text-slate-500 hover:text-slate-300 text-xs">✕</button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setIsEditingName(true)}
+                className="flex items-center gap-2 group w-full text-left">
+                <span className={`text-base font-bold ${displayName ? 'text-white' : 'text-slate-600 italic'}`}>
+                  {displayName || 'Add your name…'}
+                </span>
+                <Pencil className="w-3.5 h-3.5 text-slate-600 group-hover:text-indigo-400 transition-colors" />
+                {saveOk && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+              </button>
+            )}
           </div>
         </div>
 
