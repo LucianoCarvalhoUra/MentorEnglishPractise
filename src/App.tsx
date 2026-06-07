@@ -307,6 +307,7 @@ export default function App() {
   const [previousReport, setPreviousReport] = useState('');
   const [showReportInput, setShowReportInput] = useState(false);
   const [copiedReportId, setCopiedReportId] = useState<string | null>(null);
+  const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
 
   // Study system
   const [corrections, setCorrections] = useState<Correction[]>([]);
@@ -790,6 +791,27 @@ ${positiveBlock}
     settings.voiceName
       ? voices.find(v => v.name === settings.voiceName) ?? pickVoice(voices, targetLanguage)
       : pickVoice(voices, targetLanguage);
+
+  const previewVoiceSample = (voice: SpeechSynthesisVoice) => {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const samples: Record<string, string> = {
+      'en-US': "Hi! I'm Luna, your English conversation partner.",
+      'es-ES': "¡Hola! Soy Luna, tu compañera de conversación.",
+      'fr-FR': "Bonjour! Je suis Luna, votre partenaire de conversation.",
+      'de-DE': "Hallo! Ich bin Luna, Ihre Konversationspartnerin.",
+    };
+    const text = samples[targetLanguage] ?? samples['en-US'];
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.voice = voice;
+    utterance.lang = voice.lang;
+    utterance.rate = SPEECH_RATES[settings.speechRate];
+    utterance.pitch = 1.1;
+    utterance.onend = () => setPreviewingVoice(null);
+    utterance.onerror = () => setPreviewingVoice(null);
+    setPreviewingVoice(voice.name);
+    window.speechSynthesis.speak(utterance);
+  };
 
   const replaySpeak = (text: string) => {
     if (!('speechSynthesis' in window)) return;
@@ -1339,16 +1361,31 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
                 <div className="col-span-2 md:col-span-4">
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Voice</p>
                   <div className="flex flex-wrap gap-1.5">
-                    <button onClick={() => setSettings(s => ({ ...s, voiceName: '' }))}
+                    <button
+                      onClick={() => {
+                        setSettings(s => ({ ...s, voiceName: '' }));
+                        const voices = voicesRef.current.length ? voicesRef.current : window.speechSynthesis.getVoices();
+                        const autoVoice = pickVoice(voices, targetLanguage);
+                        if (autoVoice) previewVoiceSample(autoVoice);
+                      }}
                       className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                         settings.voiceName === '' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
                       }`}>Auto</button>
                     {langVoices.map(v => (
-                      <button key={v.name} onClick={() => setSettings(s => ({ ...s, voiceName: v.name }))}
+                      <button key={v.name}
+                        onClick={() => {
+                          setSettings(s => ({ ...s, voiceName: v.name }));
+                          previewVoiceSample(v);
+                        }}
                         title={v.name}
-                        className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${
                           settings.voiceName === v.name ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                        }`}>{shortName(v.name)}</button>
+                        }`}>
+                        {previewingVoice === v.name && (
+                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
+                        )}
+                        {shortName(v.name)}
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -1382,7 +1419,7 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
 
           </div>
           <div className="max-w-4xl mx-auto mt-3 pt-3 border-t border-slate-700/30 flex justify-end">
-            <span className="text-[10px] text-slate-600 font-mono">v1.0.9</span>
+            <span className="text-[10px] text-slate-600 font-mono">v1.1.0</span>
           </div>
         </div>
       )}
