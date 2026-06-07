@@ -951,53 +951,88 @@ Be encouraging and concrete. Maximum 3 sentences total. Do NOT wait for the stud
     const hist = historyRef.current;
     const userMsgs = hist.filter(m => m.sender === 'user').length;
 
-    const reportSystemPrompt = `You are an expert English conversation coach for Brazilian students. Generate a warm, specific, and encouraging session report based ONLY on what actually happened in this conversation. Use real examples. Never be generic.
+    const reportSystemPrompt = `You are an expert English conversation coach for Brazilian students. Generate a warm, specific, and encouraging session report based ONLY on what actually happened in this conversation. Use real examples from the chat. Never be generic.
 
 Write the entire report in English. Structure it EXACTLY as follows:
 
-🎯 OVERALL LEVEL ESTIMATE
-CEFR: [A1 / A2 / B1 / B2 / C1 / C2] — one sentence explaining why, based on what you observed.
+# Conversation Performance Score
 
-📊 PERFORMANCE SCORES
-Rate each dimension 1–10 based on what happened in this session:
-• Vocabulary: X/10 — (range and appropriateness of words used)
-• Grammar: X/10 — (overall accuracy)
-• Sentence Complexity: X/10 — (variety and length of sentence structures)
-• Fluency: X/10 — (natural flow, pace, and ability to keep conversation going)
-• Communication Effectiveness: X/10 — (ability to convey ideas clearly, even with errors)
-• Confidence: X/10 — (how boldly the student engaged and took risks)
-• Conversation Engagement: X/10 — (how actively and naturally they participated)
+## Communication Score
+Measures: ability to express ideas, keep conversation flowing, clarity.
+Score: X/10
+Comment: [one specific observation from this session]
 
-✅ WHAT WENT WELL
-At least 3 specific positives with real examples from the conversation:
-• [strength + quote or example]
-• [strength + quote or example]
-• [strength + quote or example]
+## Vocabulary Score
+Measures: variety of vocabulary, appropriate word choice, topic-related words.
+Score: X/10
+Comment: [one specific observation]
 
-🔧 OPPORTUNITIES FOR IMPROVEMENT
-Maximum 3 items (most impactful only):
-• [pattern observed] — brief, actionable suggestion
-• [pattern] — suggestion
-• [pattern] — suggestion
+## Grammar Score
+Measures: sentence accuracy, correct structure, consistency.
+Score: X/10
+Comment: [one specific observation]
 
-📌 MOST IMPORTANT GRAMMAR TOPIC TO STUDY NEXT
-One topic only — the single most impactful area:
-Topic: [name]
-Why: [one sentence based on what you observed]
-Quick tip: [one simple, memorable rule]
+## Verb Tense Score
+Measures: correct use of verb tenses, variety used, consistency.
+Score: X/10
+Comment: [one specific observation]
 
-💬 VOCABULARY GROWTH
-Words/expressions used well this session:
-• ...
+## Fluency Score
+Measures: natural flow, ability to answer without hesitation, expanding ideas.
+Score: X/10
+Comment: [one specific observation]
 
-Suggested words for next session (related to today's topics):
-• ...
+## Confidence Score
+Measures: willingness to participate, answering questions, engagement.
+Score: X/10
+Comment: [one specific observation]
 
-Interesting expressions or idioms to learn next:
-• ...
+---
 
-🌟 MOTIVATION SUMMARY
-[2–3 warm, genuine sentences: highlight real progress observed, name one thing they should feel proud of, and encourage the next session. Personal, not generic.]
+# Overall Conversation Score
+Calculate the overall score: average of all 6 scores × 10, rounded to nearest whole number.
+Overall Score: XX/100
+
+Performance Level:
+90–100 = Excellent | 80–89 = Very Good | 70–79 = Good | 60–69 = Developing | Below 60 = Needs More Practice
+
+Level: [level name]
+
+---
+
+# Strengths Identified
+List 3 to 5 positives using real examples from the conversation. Always include at least 3, even if mistakes were made.
+✅ [specific strength]
+✅ [specific strength]
+✅ [specific strength]
+
+---
+
+# Areas for Improvement
+Maximum 3 items. Most impactful only. Do not overwhelm the student.
+📌 [area] — [brief, actionable tip]
+📌 [area] — [tip]
+
+---
+
+# Best Moment of the Conversation
+Highlight one specific sentence, idea, or response that demonstrated strong English.
+"[exact quote or paraphrase from the conversation]"
+Brief explanation of why it stood out.
+
+---
+
+# Next Learning Goal
+Recommend ONE priority topic only.
+Next Focus: [topic]
+Reason: [one sentence based on what you observed in this session]
+
+---
+
+# Motivation Summary
+End with 2–3 warm coaching sentences. Focus on progress, not perfection.
+Highlight genuine strengths, name one thing to feel proud of, and encourage the next session.
+Never end by discussing only mistakes.
 
 Stats: ${userMsgs} student messages in this session.`;
 
@@ -1183,6 +1218,9 @@ Stats: ${userMsgs} student messages in this session.`;
               </div>
             </div>
 
+          </div>
+          <div className="max-w-4xl mx-auto mt-3 pt-3 border-t border-slate-700/30 flex justify-end">
+            <span className="text-[10px] text-slate-600 font-mono">v1.0.1</span>
           </div>
         </div>
       )}
