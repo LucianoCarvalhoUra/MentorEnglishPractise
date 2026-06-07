@@ -651,28 +651,33 @@ Even when no mistakes exist, find something positive to observe.
 Never combine CORRECTION + POSITIVE in the same turn.`
         : '';
 
-      const isFirstTurn = historyRef.current.filter(m => m.sender === 'luna').length === 0;
-
       const previousReportBlock = previousReport.trim()
         ? `
-# Previous Session Report (Adaptive Coaching Mode)
-The student has provided a previous session report. Analyze it and adapt your entire conversation strategy.
+# Previous Session Report (Silent Coaching Mode)
+You have analyzed the student's previous session report. Your entire coaching strategy is based on this analysis — but the student must never know this. The conversation should feel completely natural.
 
 PREVIOUS REPORT:
 ${previousReport.trim()}
 
-ADAPTIVE STRATEGY:
-• Identify the lowest scoring skills and naturally create practice opportunities for them
-• Use the recommended study topic as the primary conversation theme
-• Grammar/Verb Tense score below 8 → ask questions that naturally require those structures (past events, experiences, plans, hypotheticals)
-• Vocabulary score below 8 → weave richer vocabulary options into your responses naturally
-• Communication/Confidence score ≥ 8 → challenge with complex questions and encourage detailed elaboration
-• NEVER announce that you are testing grammar — practice must feel like natural conversation
-• PRIORITY ORDER: Recommended study topic → lowest score area → repeated grammar mistakes → weak verb tenses → vocabulary gaps
-${isFirstTurn ? `
-OPENING (this first message only): Start with exactly:
-"I reviewed your previous learning report and I'll adapt today's conversation to help you strengthen your English while keeping the discussion natural and enjoyable."
-Then immediately ask one engaging open-ended question related to the recommended study topic or weakest area.` : ''}`
+INVISIBLE TUTORING RULES — follow strictly:
+• NEVER mention the report, scores, or any analysis
+• NEVER say "I noticed you struggle with..." or "Today we'll practice..." or "Based on your report..."
+• NEVER announce grammar topics, vocabulary goals, or learning objectives
+• The student should feel they are having a real conversation, not attending a lesson
+
+SILENT COACHING STRATEGY:
+• Grammar/Verb Tense below 8 → naturally ask questions requiring those structures
+  - Past Simple weak? Ask about past events, trips, weekend activities, childhood memories
+  - Present Perfect weak? Ask "Have you ever..." or "What have you done recently?"
+  - Future weak? Ask about plans, goals, upcoming events
+• Vocabulary below 8 → weave richer alternatives naturally into your responses
+  - Student says "The movie was good" → respond "Would you say it was exciting, inspiring, or thought-provoking?"
+• Communication/Confidence ≥ 8 → encourage longer, more detailed elaboration
+• Follow the recommended study topic as the natural conversation theme
+
+BRIEF POSITIVE REINFORCEMENT (only when target structure is used successfully):
+"Nice use of past tense there." / "That was a very natural way to express that idea."
+Keep it short — one phrase max. Never interrupt the conversational flow.`
         : '';
 
       const systemPrompt = `
@@ -908,62 +913,39 @@ Be encouraging and concrete. Maximum 3 sentences total. Do NOT wait for the stud
     }
   };
 
-  // Called when a previous session report is loaded — generates a structured learning plan
-  const generateLearningPlan = async () => {
+  // Called when a previous report is loaded — silently analyzes it and opens with a natural question
+  const generateSilentReportGreeting = async () => {
     if (!GROQ_KEY && !OPENROUTER_KEY && !GEMINI_KEY) { resumeListening(); return; }
     setStatus('analyzing');
     const languageNames: Record<string, string> = { 'en-US': 'English', 'es-ES': 'Spanish', 'fr-FR': 'French', 'de-DE': 'German' };
 
-    const planPrompt = `You are Luna, an expert ${languageNames[targetLanguage]} conversation coach for Brazilian students.
-A student has provided their previous session report. Generate a clear, warm, and structured learning plan for today's session.
+    const greetingPrompt = `You are Luna, a warm ${languageNames[targetLanguage]} conversation partner.
+You have silently read and analyzed a student's previous session report. Use it ONLY to choose a natural opening question that will subtly create opportunities to practice their weakest skill.
 
-PREVIOUS SESSION REPORT:
+PREVIOUS SESSION REPORT (analyze silently — NEVER mention it):
 ${previousReport.trim()}
 
-Write the plan in English. Use this EXACT format:
+Your task: write ONE warm, friendly greeting (max 2 short sentences).
+Rules:
+- Do NOT mention the report, scores, or any analysis
+- Do NOT say "I reviewed your report" or "Based on your previous session"
+- Do NOT announce grammar topics or learning goals
+- Start with a warm welcome, then ask ONE natural question that relates to the recommended topic or weakest skill
+- Sound like a real person, not a teacher
 
-## Previous Session Overview
-[2–3 sentences: strongest skill observed, weakest area, most frequent mistake, and the recommended study topic]
-
-## Today's Focus Areas
-1. [Most important priority — based on lowest score or recommended topic]
-2. [Second priority]
-3. [Third priority]
-
-## Conversation Strategy
-Today I will help you practice:
-• [specific practice area]
-• [specific practice area]
-• [specific practice area]
-• [specific practice area]
-
-I will introduce new vocabulary naturally and create opportunities to practice target structures without interrupting the flow of conversation.
-
-## Suggested Topics
-Topics that reinforce today's goals:
-• [topic 1]
-• [topic 2]
-• [topic 3]
-• [topic 4]
-• [topic 5]
-
-## Primary Goal
-[One clear, motivating goal for this session — one sentence]
-
-## Session Challenge
-[One small, concrete challenge based on the weakest area — encouraging, not intimidating]
-
----
-Based on your previous report, this is the learning plan I recommend for today. Would you like to follow this plan, or would you prefer to focus on another topic?`;
+Good examples:
+"Welcome back! What interesting things have you done this week?"
+"Hey, great to see you again! Have you watched any good movies lately?"
+"Welcome back! What did you get up to over the weekend?"`;
 
     try {
-      const planText = await callLLM(planPrompt, []);
-      if (!planText) { resumeListening(); return; }
+      const responseText = await callLLM(greetingPrompt, []);
+      if (!responseText) { resumeListening(); return; }
       const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      setHistory([{ id: crypto.randomUUID(), sender: 'luna', text: planText, timestamp }]);
-      speak("I've reviewed your previous session report and prepared a personalized learning plan for today — you can read it in the chat. Would you like to follow this plan, or would you prefer to focus on a different topic?");
+      setHistory([{ id: crypto.randomUUID(), sender: 'luna', text: responseText, timestamp }]);
+      speak(responseText);
     } catch (err: any) {
-      console.error('Learning plan error:', err);
+      console.error('Silent report greeting error:', err);
       generateOpeningGreeting();
     }
   };
@@ -975,7 +957,7 @@ Based on your previous report, this is the learning plan I recommend for today. 
       if (focusTopic) {
         generateFocusGreeting(focusTopic);
       } else if (previousReport.trim()) {
-        generateLearningPlan();
+        generateSilentReportGreeting();
       } else {
         generateOpeningGreeting();
       }
@@ -1379,7 +1361,7 @@ Keep the comparison qualitative and specific. Do not compare raw scores directly
 
           </div>
           <div className="max-w-4xl mx-auto mt-3 pt-3 border-t border-slate-700/30 flex justify-end">
-            <span className="text-[10px] text-slate-600 font-mono">v1.0.6</span>
+            <span className="text-[10px] text-slate-600 font-mono">v1.0.7</span>
           </div>
         </div>
       )}
