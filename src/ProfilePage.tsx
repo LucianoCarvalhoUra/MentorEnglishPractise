@@ -4,12 +4,15 @@ import type { LearningContext, LearningSession } from './supabase';
 import { updateProfile } from './supabase';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+type ProfileTab = 'profile' | 'progress' | 'history' | 'achievements';
+
 interface ProfilePageProps {
   context: LearningContext;
   bg: string;
   card: string;
   panelGlass: string;
   totalCorrections: number;
+  initialTab?: ProfileTab;
   onClose: () => void;
   onOpenSettings: () => void;
   onSignOut: () => void;
@@ -80,11 +83,12 @@ async function compressImage(file: File, size = 128): Promise<string> {
 
 export function ProfilePage({
   context, bg, card, panelGlass,
-  totalCorrections, onClose, onOpenSettings, onSignOut, onProfileUpdated,
+  totalCorrections, initialTab = 'profile', onClose, onOpenSettings, onSignOut, onProfileUpdated,
 }: ProfilePageProps) {
   const { profile, passport, recentSessions, gaps, strengths } = context;
 
   // ── Editable profile state ──
+  const [activeTab, setActiveTab]     = useState<ProfileTab>(initialTab);
   const [displayName, setDisplayName] = useState(profile.display_name ?? '');
   const [avatarData, setAvatarData]   = useState<string | null>(profile.avatar_data ?? null);
   const [isEditingName, setIsEditingName] = useState(false);
@@ -225,21 +229,45 @@ export function ProfilePage({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto" style={{ background: bg }}>
 
-      {/* Sticky header */}
-      <div className="sticky top-0 z-10 flex items-center gap-3 px-5 py-4 border-b border-slate-800/50 backdrop-blur"
-        style={{ background: panelGlass }}>
-        <button onClick={onClose}
-          className="p-2 rounded-xl border border-slate-700/50 bg-slate-800/60 text-slate-400 hover:text-white transition-colors">
-          <X className="w-4 h-4" />
-        </button>
-        <span className="font-bold text-white text-sm flex-1">Learning Profile</span>
-        <button onClick={() => { onOpenSettings(); onClose(); }}
-          className="text-xs text-slate-500 hover:text-indigo-400 transition-colors px-2">
-          Settings
-        </button>
+      {/* Sticky header + tabs */}
+      <div className="sticky top-0 z-10 border-b border-slate-800/50 backdrop-blur" style={{ background: panelGlass }}>
+        <div className="flex items-center gap-3 px-5 py-3.5">
+          <button onClick={onClose}
+            className="p-2 rounded-xl border border-slate-700/50 bg-slate-800/60 text-slate-400 hover:text-white transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+          <span className="font-bold text-white text-sm flex-1">
+            {activeTab === 'profile' ? 'My Profile' : activeTab === 'progress' ? 'Learning Progress' : activeTab === 'history' ? 'Session History' : 'Achievements'}
+          </span>
+          <button onClick={() => { onOpenSettings(); onClose(); }}
+            className="text-xs text-slate-500 hover:text-indigo-400 transition-colors px-2">
+            Settings
+          </button>
+        </div>
+        {/* Tab bar */}
+        <div className="flex px-4 gap-1 pb-0.5 overflow-x-auto">
+          {([
+            { id: 'profile',      label: 'Profile',     icon: '👤' },
+            { id: 'progress',     label: 'Progress',    icon: '📈' },
+            { id: 'history',      label: 'History',     icon: '🕒' },
+            { id: 'achievements', label: 'Achievements',icon: '🏆' },
+          ] as const).map(tab => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-t-lg whitespace-nowrap transition-colors border-b-2 ${
+                activeTab === tab.id
+                  ? 'text-indigo-300 border-indigo-500'
+                  : 'text-slate-500 border-transparent hover:text-slate-300'
+              }`}>
+              <span>{tab.icon}</span>{tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-5 space-y-4 pb-10">
+
+        {/* ══ TAB: PROFILE ════════════════════════════════════════════════════ */}
+        {activeTab === 'profile' && <>
 
         {/* ── Profile Header ───────────────────────────────────────────────── */}
         <div className={`${sectionCard} flex flex-col gap-4`} style={{ background: card }}>
@@ -337,6 +365,29 @@ export function ProfilePage({
           </div>
         </div>
 
+        {/* ── Stats Grid ──────────────────────────────────────────────────── */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { icon: <BarChart2 className="w-4 h-4" />, value: sessions, label: 'Sessions', color: '#6366f1' },
+            { icon: <Clock className="w-4 h-4" />, value: `${hours}h`, label: 'Hours Practiced', color: '#3b82f6' },
+            { icon: <BookOpen className="w-4 h-4" />, value: words, label: 'Words Learned', color: '#10b981' },
+            { icon: <Target className="w-4 h-4" />, value: totalCorrections, label: 'Corrections', color: '#f59e0b' },
+          ].map(({ icon, value, label, color }) => (
+            <div key={label} className={`${sectionCard} flex flex-col items-center gap-2 text-center`} style={{ background: card }}>
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: color + '22', color }}>
+                {icon}
+              </div>
+              <span className="text-2xl font-bold text-white">{value}</span>
+              <span className="text-[10px] text-slate-500 leading-tight">{label}</span>
+            </div>
+          ))}
+        </div>
+
+        </>}
+
+        {/* ══ TAB: PROGRESS (level + skills + focus + goals + insights) ═══════ */}
+        {activeTab === 'progress' && <>
+
         {/* ── Level Progress ───────────────────────────────────────────────── */}
         <div className={sectionCard} style={{ background: card }}>
           <div className="flex items-center gap-2 mb-4">
@@ -373,24 +424,6 @@ export function ProfilePage({
                `Keep practicing — you're making progress!`}
             </p>
           </div>
-        </div>
-
-        {/* ── Stats Grid ──────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { icon: <BarChart2 className="w-4 h-4" />, value: sessions, label: 'Sessions', color: '#6366f1' },
-            { icon: <Clock className="w-4 h-4" />, value: `${hours}h`, label: 'Hours Practiced', color: '#3b82f6' },
-            { icon: <BookOpen className="w-4 h-4" />, value: words, label: 'Words Learned', color: '#10b981' },
-            { icon: <Target className="w-4 h-4" />, value: totalCorrections, label: 'Corrections', color: '#f59e0b' },
-          ].map(({ icon, value, label, color }) => (
-            <div key={label} className={`${sectionCard} flex flex-col items-center gap-2 text-center`} style={{ background: card }}>
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: color + '22', color }}>
-                {icon}
-              </div>
-              <span className="text-2xl font-bold text-white">{value}</span>
-              <span className="text-[10px] text-slate-500 leading-tight">{label}</span>
-            </div>
-          ))}
         </div>
 
         {/* ── Skill Dashboard ──────────────────────────────────────────────── */}
@@ -512,6 +545,28 @@ export function ProfilePage({
           </div>
         </div>
 
+        {/* ── Progress Insights (moved here from bottom) ──────────────────── */}
+        {insights.length > 0 && (
+          <div className={sectionCard} style={{ background: card }}>
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp className="w-4 h-4 text-indigo-400" />
+              <span className="text-sm font-bold text-white">Progress Insights</span>
+            </div>
+            <div className="space-y-2">
+              {insights.map((insight, i) => (
+                <p key={i} className="text-xs text-slate-300 leading-relaxed py-1.5 border-b border-slate-800/40 last:border-0">
+                  {insight}
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
+
+        </>}
+
+        {/* ══ TAB: HISTORY ════════════════════════════════════════════════════ */}
+        {activeTab === 'history' && <>
+
         {/* ── Session History ──────────────────────────────────────────────── */}
         {recentSessions.length > 0 && (
           <div className={sectionCard} style={{ background: card }}>
@@ -573,22 +628,10 @@ export function ProfilePage({
           </div>
         )}
 
-        {/* ── Progress Insights ────────────────────────────────────────────── */}
-        {insights.length > 0 && (
-          <div className={sectionCard} style={{ background: card }}>
-            <div className="flex items-center gap-2 mb-3">
-              <TrendingUp className="w-4 h-4 text-indigo-400" />
-              <span className="text-sm font-bold text-white">Progress Insights</span>
-            </div>
-            <div className="space-y-2">
-              {insights.map((insight, i) => (
-                <p key={i} className="text-xs text-slate-300 leading-relaxed py-1.5 border-b border-slate-800/40 last:border-0">
-                  {insight}
-                </p>
-              ))}
-            </div>
-          </div>
-        )}
+        </>}
+
+        {/* ══ TAB: ACHIEVEMENTS ═══════════════════════════════════════════════ */}
+        {activeTab === 'achievements' && <>
 
         {/* ── Achievements ─────────────────────────────────────────────────── */}
         <div className={sectionCard} style={{ background: card }}>
@@ -638,6 +681,8 @@ export function ProfilePage({
           Sign Out
           <ChevronRight className="w-4 h-4" />
         </button>
+
+        </>}
 
       </div>
     </div>

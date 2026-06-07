@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { Phone, PhoneOff, Sparkles, MessageSquare, Heart, Globe, BookOpen, X, Mic, MicOff, ChevronUp, Volume2, User, Settings, FileText, CheckCircle2, Copy, LogOut, BarChart2, ChevronDown } from 'lucide-react';
+import { Phone, PhoneOff, Sparkles, MessageSquare, Heart, Globe, BookOpen, X, Mic, MicOff, ChevronUp, Volume2, User, Settings, FileText, CheckCircle2, Copy, LogOut, BarChart2, ChevronDown, Clock, Award } from 'lucide-react';
 import {
   getOrCreateProfile, loadLearningContext, saveSessionData, parseReportScores,
   buildLearningContextBlock, isSupabaseConfigured,
@@ -324,6 +324,7 @@ export default function App() {
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [profileTab, setProfileTab] = useState<'profile' | 'progress' | 'history' | 'achievements'>('profile');
   const learningContextRef = useRef<LearningContext | null>(null);
 
   // Study system
@@ -1438,6 +1439,7 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
           card={THEMES[settings.theme].card}
           panelGlass={THEMES[settings.theme].panelGlass}
           totalCorrections={corrections.length}
+          initialTab={profileTab}
           onClose={() => setShowProfile(false)}
           onOpenSettings={() => setShowSettings(true)}
           onSignOut={handleSignOut}
@@ -1531,8 +1533,10 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
                   <div className="absolute right-0 top-full mt-2 w-48 rounded-2xl border border-slate-700/60 shadow-2xl overflow-hidden z-40"
                     style={{ background: THEMES[settings.theme].card }}>
                     {[
-                      { icon: <User className="w-3.5 h-3.5" />, label: 'Profile', action: () => { setShowProfile(true); setShowProfileMenu(false); } },
-                      { icon: <BarChart2 className="w-3.5 h-3.5" />, label: 'Learning Progress', action: () => { setShowProfile(true); setShowProfileMenu(false); } },
+                      { icon: <User className="w-3.5 h-3.5" />, label: 'Profile', action: () => { setProfileTab('profile'); setShowProfile(true); setShowProfileMenu(false); } },
+                      { icon: <BarChart2 className="w-3.5 h-3.5" />, label: 'Learning Progress', action: () => { setProfileTab('progress'); setShowProfile(true); setShowProfileMenu(false); } },
+                      { icon: <Clock className="w-3.5 h-3.5" />, label: 'Session History', action: () => { setProfileTab('history'); setShowProfile(true); setShowProfileMenu(false); } },
+                      { icon: <Award className="w-3.5 h-3.5" />, label: 'Achievements', action: () => { setProfileTab('achievements'); setShowProfile(true); setShowProfileMenu(false); } },
                       { icon: <Settings className="w-3.5 h-3.5" />, label: 'Settings', action: () => { setShowSettings(true); setShowProfileMenu(false); } },
                     ].map(item => (
                       <button key={item.label} onClick={item.action}
@@ -1713,7 +1717,7 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
 
           </div>
           <div className="max-w-4xl mx-auto mt-3 pt-3 border-t border-slate-700/30 flex justify-end">
-            <span className="text-[10px] text-slate-600 font-mono">v1.2.5</span>
+            <span className="text-[10px] text-slate-600 font-mono">v1.2.6</span>
           </div>
 
           {/* Mobile done button */}
