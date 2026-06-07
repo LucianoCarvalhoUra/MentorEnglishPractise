@@ -308,6 +308,7 @@ export default function App() {
   const [showReportInput, setShowReportInput] = useState(false);
   const [copiedReportId, setCopiedReportId] = useState<string | null>(null);
   const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
+  const [mobileTab, setMobileTab] = useState<'luna' | 'chat'>('luna');
 
   // Study system
   const [corrections, setCorrections] = useState<Correction[]>([]);
@@ -777,13 +778,21 @@ ${positiveBlock}
   // Prefer female voices by checking common names across Windows, macOS, and Chrome
   const pickVoice = (voices: SpeechSynthesisVoice[], lang: string): SpeechSynthesisVoice | undefined => {
     const langPrefix = lang.split('-')[0];
-    const femaleKeywords = ['zira', 'samantha', 'victoria', 'allison', 'susan', 'aria', 'luna',
-                            'jenny', 'michelle', 'female', 'woman', 'fiona', 'moira'];
+    const femaleKw = ['female', 'woman', 'girl',
+      'zira', 'jenny', 'aria', 'michelle', 'ashley', 'elizabeth', 'cora', 'jane',
+      'samantha', 'victoria', 'allison', 'susan', 'fiona', 'moira', 'karen', 'tessa',
+      'ava', 'noelle', 'joelle', 'amelie', 'nora', 'soledad',
+      'luna', 'eva', 'maria', 'helena', 'hazel', 'neerja', 'heera', 'cortana',
+      'monica', 'paulina', 'petra', 'anna', 'alice', 'laura', 'sara', 'lena',
+      'milena', 'natasha', 'yuna', 'mia', 'nadia', 'kate', 'grace', 'claire',
+      'chloe', 'amber', 'emma', 'hanna', 'siri', 'linda', 'sofia', 'sarah', 'emily'];
+    const robotKw = ['espeak', 'mbrola', 'festival', 'flite', 'tts_', 'svox', 'pico', 'cmu'];
+    const safe = voices.filter(v => !robotKw.some(k => v.name.toLowerCase().includes(k)));
     return (
-      voices.find(v => v.lang === lang && femaleKeywords.some(k => v.name.toLowerCase().includes(k))) ||
-      voices.find(v => v.lang.startsWith(langPrefix) && femaleKeywords.some(k => v.name.toLowerCase().includes(k))) ||
-      voices.find(v => v.lang === lang) ||
-      voices.find(v => v.lang.startsWith(langPrefix))
+      safe.find(v => v.lang === lang && femaleKw.some(k => v.name.toLowerCase().includes(k))) ||
+      safe.find(v => v.lang.startsWith(langPrefix) && femaleKw.some(k => v.name.toLowerCase().includes(k))) ||
+      safe.find(v => v.lang === lang) ||
+      safe.find(v => v.lang.startsWith(langPrefix))
     );
   };
 
@@ -1041,6 +1050,7 @@ Good examples:
   const startCall = () => {
     if (!GROQ_KEY && !OPENROUTER_KEY && !GEMINI_KEY) { alert("Please add VITE_GROQ_API_KEY, VITE_OPENROUTER_API_KEY, or VITE_GEMINI_API_KEY to your .env file."); return; }
     if (!recognitionRef.current) { alert("Speech recognition requires Chrome or Edge."); return; }
+    setMobileTab('chat');
     setIsRinging(true);
     playRingTone();
     ringTimeoutRef.current = setTimeout(() => {
@@ -1319,8 +1329,17 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
 
       {/* ── Settings panel ── */}
       {showSettings && !isCallActive && (
-        <div className="flex-none border-b border-slate-800/50 backdrop-blur px-5 md:px-8 py-4"
+        <div className="fixed inset-0 z-40 md:relative md:inset-auto md:z-auto flex-none overflow-y-auto border-b border-slate-800/50 backdrop-blur px-5 md:px-8 py-4"
           style={{ background: THEMES[settings.theme].panelGlass }}>
+
+          {/* Mobile header */}
+          <div className="flex items-center justify-between mb-5 md:hidden">
+            <span className="text-base font-bold text-slate-200">Settings</span>
+            <button onClick={() => setShowSettings(false)} className="p-2 rounded-xl bg-slate-800/60 border border-slate-700/50 text-slate-400">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
 
 
@@ -1355,17 +1374,27 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
 
             {(() => {
               // Exclude clearly male voices; include confirmed-female + neutral names
-              const maleKw = [' male', 'mark', 'david', 'james', 'richard', 'george',
-                'daniel', 'fred', 'thomas', 'paul', 'oliver', 'reed', 'ralph', 'albert', 'guy'];
-              const femaleKw = ['zira', 'samantha', 'victoria', 'allison', 'susan', 'aria', 'luna',
-                'jenny', 'michelle', 'female', 'woman', 'fiona', 'moira', 'karen', 'tessa',
-                'eva', 'maria', 'helena', 'hazel', 'linda', 'neerja', 'heera', 'cortana'];
+              const maleKw = [' male', ' man', 'mark', 'david', 'james', 'richard', 'george',
+                'daniel', 'fred', 'thomas', 'paul', 'oliver', 'reed', 'ralph', 'albert', 'guy',
+                'alex', 'tom', 'henry', 'arthur', 'carlos', 'diego', 'jorge', 'juan',
+                'pierre', 'xavier', 'hans', 'stefan', 'martin', 'nicolas', 'ryan', 'liam',
+                'jack', 'mike', 'michael', 'bruce', 'eric', 'ben', 'bob', 'rob'];
+              const femaleKw = ['female', 'woman', 'girl',
+                'zira', 'jenny', 'aria', 'michelle', 'ashley', 'elizabeth', 'cora', 'jane',
+                'samantha', 'victoria', 'allison', 'susan', 'fiona', 'moira', 'karen', 'tessa',
+                'ava', 'noelle', 'joelle', 'amelie', 'nora', 'soledad',
+                'luna', 'eva', 'maria', 'helena', 'hazel', 'neerja', 'heera', 'cortana',
+                'monica', 'paulina', 'petra', 'anna', 'alice', 'laura', 'sara', 'lena',
+                'milena', 'natasha', 'yuna', 'mia', 'nadia', 'kate', 'grace', 'claire',
+                'chloe', 'amber', 'emma', 'hanna', 'siri', 'linda', 'sofia', 'sarah', 'emily'];
+              const robotKw = ['espeak', 'mbrola', 'festival', 'flite', 'tts_', 'svox', 'pico', 'cmu'];
               const langVoices = availableVoices.filter(v => {
                 const n = v.name.toLowerCase();
                 const isLang = v.lang === targetLanguage || v.lang.startsWith(targetLanguage.split('-')[0]);
                 const isMale = maleKw.some(k => n.includes(k));
                 const isFemale = femaleKw.some(k => n.includes(k));
-                return isLang && (isFemale || !isMale); // keep confirmed-female + neutral
+                const isRobot = robotKw.some(k => n.includes(k));
+                return isLang && !isRobot && (isFemale || !isMale);
               }).slice(0, 8);
               const sn = (name: string) =>
                 name
@@ -1443,8 +1472,14 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
 
           </div>
           <div className="max-w-4xl mx-auto mt-3 pt-3 border-t border-slate-700/30 flex justify-end">
-            <span className="text-[10px] text-slate-600 font-mono">v1.1.6</span>
+            <span className="text-[10px] text-slate-600 font-mono">v1.1.7</span>
           </div>
+
+          {/* Mobile done button */}
+          <button onClick={() => setShowSettings(false)}
+            className="md:hidden mt-6 mb-4 w-full py-3 rounded-full font-semibold text-sm bg-gradient-to-r from-indigo-600 to-violet-600 text-white">
+            Done
+          </button>
         </div>
       )}
 
@@ -1452,7 +1487,7 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
       <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
 
         {/* ── Left panel: Luna + controls + score ── */}
-        <aside className="flex-none w-full md:w-72 lg:w-80 flex flex-col gap-3 p-4 md:p-5 border-b md:border-b-0 md:border-r border-slate-800/40 overflow-y-auto">
+        <aside className={`flex-none w-full md:w-72 lg:w-80 flex-col gap-3 p-4 md:p-5 md:border-r border-slate-800/40 overflow-y-auto ${mobileTab === 'luna' ? 'flex' : 'hidden md:flex'}`}>
 
           {/* ── Luna call screen (idle) or compact call bar (active) ── */}
           {isCallActive ? (
@@ -1715,7 +1750,7 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
         </aside>
 
         {/* ── Right panel: Dialogue ── */}
-        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        <div className={`flex-1 min-h-0 flex-col overflow-hidden ${mobileTab === 'chat' ? 'flex' : 'hidden md:flex'}`}>
 
           {/* Dialogue header */}
           <div className="flex-none flex items-center justify-between px-4 md:px-6 py-3.5 border-b border-slate-800/40">
@@ -1944,6 +1979,28 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
           </div>
         </div>
       </div>
+
+      {/* ── Mobile bottom navigation ── */}
+      <nav className="md:hidden flex-none flex items-stretch border-t border-slate-800/50"
+        style={{ background: THEMES[settings.theme].panelGlass }}>
+        <button
+          onClick={() => setMobileTab('luna')}
+          className={`flex-1 flex flex-col items-center gap-1 py-3 transition-colors ${mobileTab === 'luna' ? 'text-indigo-400' : 'text-slate-600'}`}>
+          <User className="w-5 h-5" />
+          <span className="text-[10px] font-semibold">Luna</span>
+        </button>
+        <button
+          onClick={() => setMobileTab('chat')}
+          className={`flex-1 flex flex-col items-center gap-1 py-3 transition-colors relative ${mobileTab === 'chat' ? 'text-indigo-400' : 'text-slate-600'}`}>
+          <div className="relative">
+            <MessageSquare className="w-5 h-5" />
+            {history.length > 0 && mobileTab !== 'chat' && (
+              <span className="absolute -top-1 -right-1.5 w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
+            )}
+          </div>
+          <span className="text-[10px] font-semibold">Chat</span>
+        </button>
+      </nav>
     </div>
   );
 }
