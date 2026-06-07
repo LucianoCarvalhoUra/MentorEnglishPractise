@@ -103,14 +103,14 @@ async function callLLM(systemPrompt: string, messages: LLMMessage[], groqModel =
 }
 
 const THEMES = {
-  midnight: { name: 'Midnight', swatch: '#4f7eff', main: '#09162c', panelGlass: 'rgba(9,22,44,0.97)',   card: '#0e1e3a', bubble: '#122040', report: '#0c1830' },
-  carbon:   { name: 'Carbon',   swatch: '#94a3b8', main: '#0e0f14', panelGlass: 'rgba(14,15,20,0.97)',  card: '#181a22', bubble: '#1a1c26', report: '#131518' },
-  forest:   { name: 'Forest',   swatch: '#22c55e', main: '#0a1c0e', panelGlass: 'rgba(10,28,14,0.97)',  card: '#102010', bubble: '#122214', report: '#0c1c10' },
-  violet:   { name: 'Violet',   swatch: '#a855f7', main: '#0e0830', panelGlass: 'rgba(14,8,48,0.97)',   card: '#160a3c', bubble: '#180c40', report: '#120838' },
-  ember:    { name: 'Ember',    swatch: '#f97316', main: '#1c0a00', panelGlass: 'rgba(28,10,0,0.97)',   card: '#2a1000', bubble: '#281000', report: '#1e0c00' },
-  ocean:    { name: 'Ocean',    swatch: '#06b6d4', main: '#041428', panelGlass: 'rgba(4,20,40,0.97)',   card: '#081e34', bubble: '#0a2038', report: '#061828' },
-  rose:     { name: 'Rose',     swatch: '#f43f5e', main: '#1e0810', panelGlass: 'rgba(30,8,16,0.97)',   card: '#280c16', bubble: '#241018', report: '#1c0c14' },
-  amber:    { name: 'Amber',    swatch: '#f59e0b', main: '#1a1000', panelGlass: 'rgba(26,16,0,0.97)',   card: '#261600', bubble: '#221400', report: '#1c1000' },
+  midnight: { name: 'Blue',    swatch: '#3b82f6', main: '#09162c', panelGlass: 'rgba(9,22,44,0.97)',   card: '#0e1e3a', bubble: '#122040', report: '#0c1830' },
+  carbon:   { name: 'Slate',   swatch: '#94a3b8', main: '#0e0f14', panelGlass: 'rgba(14,15,20,0.97)',  card: '#181a22', bubble: '#1a1c26', report: '#131518' },
+  forest:   { name: 'Green',   swatch: '#22c55e', main: '#0a1c0e', panelGlass: 'rgba(10,28,14,0.97)',  card: '#102010', bubble: '#122214', report: '#0c1c10' },
+  violet:   { name: 'Purple',  swatch: '#a855f7', main: '#0e0830', panelGlass: 'rgba(14,8,48,0.97)',   card: '#160a3c', bubble: '#180c40', report: '#120838' },
+  ember:    { name: 'Orange',  swatch: '#f97316', main: '#1c0a00', panelGlass: 'rgba(28,10,0,0.97)',   card: '#2a1000', bubble: '#281000', report: '#1e0c00' },
+  ocean:    { name: 'Cyan',    swatch: '#06b6d4', main: '#041428', panelGlass: 'rgba(4,20,40,0.97)',   card: '#081e34', bubble: '#0a2038', report: '#061828' },
+  rose:     { name: 'Red',     swatch: '#ef4444', main: '#1e0808', panelGlass: 'rgba(30,8,8,0.97)',    card: '#280c0c', bubble: '#241010', report: '#1c0c0c' },
+  amber:    { name: 'Yellow',  swatch: '#eab308', main: '#181200', panelGlass: 'rgba(24,18,0,0.97)',   card: '#241a00', bubble: '#201600', report: '#1c1200' },
 } as const;
 type ThemeName = keyof typeof THEMES;
 
@@ -1167,26 +1167,12 @@ Stats: ${userMsgs} student messages in this session.`;
       <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
 
         {/* ── Left panel: Luna + controls + score ── */}
-        <aside className={`flex-none w-full md:w-72 lg:w-80 flex flex-col gap-3 p-4 md:p-5 border-b md:border-b-0 md:border-r border-slate-800/40 md:overflow-y-auto ${
-          isCallActive ? 'overflow-hidden' : 'overflow-y-auto max-h-[44vh] md:max-h-none'
-        }`}>
+        <aside className="flex-none w-full md:w-72 lg:w-80 flex flex-col gap-3 p-4 md:p-5 border-b md:border-b-0 md:border-r border-slate-800/40 overflow-y-auto">
 
-          {/* Focus badge */}
-          {focusTopic && !isCallActive && (
-            <div className="flex items-center gap-2 bg-indigo-950/60 border border-indigo-700/40 px-3.5 py-2.5 rounded-xl">
-              <BookOpen className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-              <span className="text-xs text-indigo-300 flex-1">
-                Focus: <span className="font-semibold capitalize">{focusTopic}</span>
-              </span>
-              <button onClick={() => setFocusTopic(null)} className="text-slate-500 hover:text-slate-300 transition-colors">
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          )}
-
-          {/* Luna card or compact bar */}
+          {/* ── Luna call screen (idle) or compact call bar (active) ── */}
           {isCallActive ? (
-            <div className="flex items-center gap-3 border border-slate-800/60 rounded-2xl px-4 py-3 shadow-lg" style={{ background: 'var(--t-card)' }}>
+            /* Compact bar during call */
+            <div className="shrink-0 flex items-center gap-3 border border-slate-800/60 rounded-2xl px-4 py-3 shadow-lg" style={{ background: 'var(--t-card)' }}>
               <div className="shrink-0 w-12 h-12 overflow-hidden" style={{ clipPath: 'circle(50%)' }}>
                 <div style={{ transform: 'scale(0.5)', transformOrigin: 'top left', width: '96px', height: '96px' }}>
                   <LunaAvatar status={status} />
@@ -1210,66 +1196,83 @@ Stats: ${userMsgs} student messages in this session.`;
                 <span className="text-[10px] text-indigo-400 font-mono capitalize">{status}</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <button
-                  onClick={interruptLuna}
-                  disabled={status !== 'speaking'}
-                  title="Interrupt"
-                  className="p-2 rounded-xl bg-amber-600/70 hover:bg-amber-600 disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all"
-                >
+                <button onClick={interruptLuna} disabled={status !== 'speaking'} title="Interrupt"
+                  className="p-2 rounded-xl bg-amber-600/70 hover:bg-amber-600 disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all">
                   <PhoneOff className="w-3.5 h-3.5" />
                 </button>
-                <button
-                  onClick={toggleMute}
-                  title={isMuted ? 'Unmute' : 'Mute'}
-                  className={`p-2 rounded-xl transition-all text-white ${isMuted ? 'bg-rose-700 hover:bg-rose-600' : 'bg-slate-700 hover:bg-slate-600'}`}
-                >
+                <button onClick={toggleMute} title={isMuted ? 'Unmute' : 'Mute'}
+                  className={`p-2 rounded-xl transition-all text-white ${isMuted ? 'bg-rose-700 hover:bg-rose-600' : 'bg-slate-700 hover:bg-slate-600'}`}>
                   {isMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
                 </button>
-                <button
-                  onClick={endCall}
-                  className="px-3 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-1.5 transition-all"
-                >
+                <button onClick={endCall}
+                  className="px-3 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-1.5 transition-all">
                   <PhoneOff className="w-3.5 h-3.5" />
                   End
                 </button>
               </div>
             </div>
           ) : (
-            <div className="rounded-2xl border border-slate-800/80 px-5 pt-5 pb-5 shadow-xl flex flex-col items-center" style={{ background: 'var(--t-card)' }}>
-              <div className="relative mb-3">
-                <LunaAvatar status={status} />
-                <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2" style={{ borderColor: THEMES[settings.theme].card }} />
-              </div>
-              <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-1.5 mb-0.5">
-                Luna <Heart className="w-3.5 h-3.5 text-pink-500 fill-pink-500" />
-              </h2>
-              <p className="text-xs text-slate-500 mb-4 capitalize">
-                <span className="text-indigo-400 font-mono">{status}</span>
+            /* ── Call screen style card ── */
+            <div className="flex-1 min-h-0 rounded-2xl border border-slate-700/40 flex flex-col overflow-hidden" style={{ background: 'var(--t-card)' }}>
+              {/* Top label */}
+              <p className="shrink-0 text-center text-[10px] text-slate-600 uppercase tracking-[0.22em] pt-5 pb-1">
+                {focusTopic ? 'Focus Session' : 'Voice Session'}
               </p>
-              {!isSpeechSupported && (
-                <p className="text-xs text-rose-400 mb-3 text-center">Speech recognition requires Chrome or Edge.</p>
+
+              {/* Avatar — fills vertical space */}
+              <div className="flex-1 flex items-center justify-center min-h-0 py-2">
+                <div className="relative">
+                  <div className="absolute -inset-6 rounded-full bg-indigo-500/10 animate-pulse" />
+                  <LunaAvatar status={status} />
+                  <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2"
+                    style={{ borderColor: THEMES[settings.theme].card }} />
+                </div>
+              </div>
+
+              {/* Name + status */}
+              <div className="shrink-0 text-center py-3">
+                <h2 className="text-2xl font-bold text-white flex items-center justify-center gap-1.5 mb-0.5">
+                  Luna <Heart className="w-4 h-4 text-pink-500 fill-pink-500" />
+                </h2>
+                <span className="text-sm text-indigo-400 font-mono capitalize">{status}</span>
+              </div>
+
+              {/* Focus badge (inside card) */}
+              {focusTopic && (
+                <div className="shrink-0 mx-4 mb-3 flex items-center gap-2 bg-indigo-950/60 border border-indigo-700/40 px-3 py-2 rounded-xl">
+                  <BookOpen className="w-3 h-3 text-indigo-400 shrink-0" />
+                  <span className="text-xs text-indigo-300 flex-1 truncate capitalize">{focusTopic}</span>
+                  <button onClick={() => setFocusTopic(null)} className="text-slate-500 hover:text-slate-300 transition-colors shrink-0">
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
               )}
-              <button
-                onClick={startCall}
-                disabled={!isSpeechSupported}
-                className="w-full py-3 px-6 rounded-xl font-semibold bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-900/30"
-              >
-                <Phone className="w-4 h-4" />
-                {focusTopic ? `Practice · ${focusTopic}` : 'Start Session'}
-              </button>
+
+              {!isSpeechSupported && (
+                <p className="shrink-0 text-xs text-rose-400 px-5 mb-2 text-center">Requires Chrome or Edge.</p>
+              )}
+
+              {/* Call button */}
+              <div className="shrink-0 px-4 pb-5">
+                <button onClick={startCall} disabled={!isSpeechSupported}
+                  className="w-full py-3.5 rounded-full font-semibold text-sm bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-900/30">
+                  <Phone className="w-4 h-4" />
+                  {focusTopic ? `Practice · ${focusTopic}` : 'Start Session'}
+                </button>
+              </div>
             </div>
           )}
 
           {/* Transcript preview */}
           {currentTranscript && (
-            <div className="bg-indigo-950/30 border border-indigo-900/40 px-4 py-3 rounded-xl">
+            <div className="shrink-0 bg-indigo-950/30 border border-indigo-900/40 px-4 py-3 rounded-xl">
               <p className="text-sm text-indigo-300 italic">"{currentTranscript}"</p>
             </div>
           )}
 
           {/* Session score + study panel */}
           {sessionScore !== null && !isCallActive && (
-            <div className="border border-slate-700/50 rounded-2xl p-4 space-y-4" style={{ background: 'var(--t-card)' }}>
+            <div className="shrink-0 border border-slate-700/50 rounded-2xl p-4 space-y-4" style={{ background: 'var(--t-card)' }}>
               <div className="flex items-center gap-4">
                 <ScoreRing score={sessionScore} />
                 <div className="flex-1 min-w-0">
@@ -1299,11 +1302,8 @@ Stats: ${userMsgs} student messages in this session.`;
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     {studySummary.map((item) => (
-                      <button
-                        key={item.category}
-                        onClick={() => startFocusedCall(item.category, item.examples)}
-                        className="bg-slate-800/50 hover:bg-slate-700/60 border border-transparent hover:border-indigo-700/30 rounded-xl p-3 text-left transition-all group"
-                      >
+                      <button key={item.category} onClick={() => startFocusedCall(item.category, item.examples)}
+                        className="bg-slate-800/50 hover:bg-slate-700/60 border border-transparent hover:border-indigo-700/30 rounded-xl p-3 text-left transition-all group">
                         <div className="flex items-center justify-between mb-1.5">
                           <span className="text-xs font-bold text-amber-300 capitalize leading-tight">
                             {item.category.replace(/_/g, ' ')}
@@ -1324,9 +1324,7 @@ Stats: ${userMsgs} student messages in this session.`;
                             <p className="text-[9px] text-slate-600">+{item.examples.length - 2} more</p>
                           )}
                         </div>
-                        <p className="text-[9px] font-semibold text-indigo-500 group-hover:text-indigo-400 transition-colors">
-                          Practice →
-                        </p>
+                        <p className="text-[9px] font-semibold text-indigo-500 group-hover:text-indigo-400 transition-colors">Practice →</p>
                       </button>
                     ))}
                   </div>
@@ -1336,29 +1334,17 @@ Stats: ${userMsgs} student messages in this session.`;
           )}
 
           {/* ── Quick theme switcher ── */}
-          <div className="mt-auto pt-3 border-t border-slate-800/30">
+          <div className="shrink-0 mt-auto pt-3 border-t border-slate-800/30">
             <p className="text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-2">Theme</p>
             <div className="grid grid-cols-4 gap-1.5">
               {(Object.keys(THEMES) as ThemeName[]).map(t => (
-                <button
-                  key={t}
-                  onClick={() => setSettings(s => ({ ...s, theme: t }))}
-                  title={THEMES[t].name}
+                <button key={t} onClick={() => setSettings(s => ({ ...s, theme: t }))} title={THEMES[t].name}
                   className={`flex flex-col items-center gap-1 py-1.5 px-1 rounded-xl border transition-all ${
-                    settings.theme === t
-                      ? 'border-white/40 bg-white/8 shadow-md'
-                      : 'border-transparent hover:border-slate-600/50 hover:bg-white/4'
-                  }`}
-                >
-                  <div
-                    className={`w-6 h-6 rounded-full border-2 transition-all ${
-                      settings.theme === t ? 'border-white scale-110' : 'border-transparent'
-                    }`}
-                    style={{ background: THEMES[t].swatch }}
-                  />
-                  <span className={`text-[9px] font-semibold leading-none transition-colors ${
-                    settings.theme === t ? 'text-white' : 'text-slate-600'
+                    settings.theme === t ? 'border-white/40 bg-white/8 shadow-md' : 'border-transparent hover:border-slate-600/50 hover:bg-white/4'
                   }`}>
+                  <div className={`w-6 h-6 rounded-full border-2 transition-all ${settings.theme === t ? 'border-white scale-110' : 'border-transparent'}`}
+                    style={{ background: THEMES[t].swatch }} />
+                  <span className={`text-[9px] font-semibold leading-none transition-colors ${settings.theme === t ? 'text-white' : 'text-slate-600'}`}>
                     {THEMES[t].name}
                   </span>
                 </button>
