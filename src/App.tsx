@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { Phone, PhoneOff, Sparkles, MessageSquare, Heart, Globe, BookOpen, X, Mic, MicOff, ChevronUp, Volume2, User, Settings, FileText, CheckCircle2, Copy, LogOut } from 'lucide-react';
+import { Phone, PhoneOff, Sparkles, MessageSquare, Heart, Globe, BookOpen, X, Mic, MicOff, ChevronUp, Volume2, User, Settings, FileText, CheckCircle2, Copy, LogOut, BarChart2, ChevronDown } from 'lucide-react';
 import {
   getOrCreateProfile, loadLearningContext, saveSessionData, parseReportScores,
   buildLearningContextBlock, isSupabaseConfigured,
   type StudentProfile, type LearningContext,
 } from './supabase';
+import { ProfilePage } from './ProfilePage';
 
 // Provider cascade: Groq (fastest, free) → OpenRouter (free) → Gemini (fallback)
 const GROQ_KEY: string | undefined = import.meta.env.VITE_GROQ_API_KEY;
@@ -321,6 +322,8 @@ export default function App() {
   const [learningContext, setLearningContext] = useState<LearningContext | null>(null);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const learningContextRef = useRef<LearningContext | null>(null);
 
   // Study system
@@ -1400,6 +1403,20 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
         </div>
       )}
 
+      {/* ── Learning Profile overlay ── */}
+      {showProfile && learningContext && (
+        <ProfilePage
+          context={learningContext}
+          bg={THEMES[settings.theme].main}
+          card={THEMES[settings.theme].card}
+          panelGlass={THEMES[settings.theme].panelGlass}
+          totalCorrections={corrections.length}
+          onClose={() => setShowProfile(false)}
+          onOpenSettings={() => setShowSettings(true)}
+          onSignOut={handleSignOut}
+        />
+      )}
+
       {/* ── Ringing overlay ── */}
       {isRinging && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-between pb-14 pt-14"
@@ -1452,24 +1469,51 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
           <span className="text-sm font-bold tracking-widest text-slate-300 uppercase">MentorStudy</span>
         </div>
         <div className="flex items-center gap-2">
-          {/* Student profile chip */}
+          {/* Student profile chip + dropdown */}
           {studentProfile && (
-            <div className="flex items-center gap-1.5 bg-slate-800/80 px-2.5 py-1.5 rounded-xl border border-slate-700/60">
-              <div className="w-5 h-5 rounded-full bg-indigo-600 flex items-center justify-center shrink-0">
-                <span className="text-[9px] font-bold text-white">{studentProfile.email[0].toUpperCase()}</span>
-              </div>
-              <span className="text-xs text-slate-300 font-medium hidden sm:block max-w-[80px] truncate">
-                {studentProfile.email.split('@')[0]}
-              </span>
-              {learningContext?.passport && (
-                <span className="text-[9px] font-bold text-indigo-400 hidden sm:block">
-                  {learningContext.passport.current_level}
+            <div className="relative">
+              <button
+                onClick={() => setShowProfileMenu(v => !v)}
+                className="flex items-center gap-1.5 bg-slate-800/80 px-2.5 py-1.5 rounded-xl border border-slate-700/60 hover:border-indigo-500/40 transition-colors">
+                <div className="w-5 h-5 rounded-full bg-indigo-600 flex items-center justify-center shrink-0">
+                  <span className="text-[9px] font-bold text-white">{studentProfile.email[0].toUpperCase()}</span>
+                </div>
+                <span className="text-xs text-slate-300 font-medium hidden sm:block max-w-[80px] truncate">
+                  {studentProfile.email.split('@')[0]}
                 </span>
-              )}
-              <button onClick={handleSignOut} title="Switch account"
-                className="text-slate-600 hover:text-rose-400 transition-colors ml-0.5">
-                <LogOut className="w-3 h-3" />
+                {learningContext?.passport && (
+                  <span className="text-[9px] font-bold text-indigo-400 hidden sm:block">
+                    {learningContext.passport.current_level}
+                  </span>
+                )}
+                <ChevronDown className="w-3 h-3 text-slate-600 ml-0.5" />
               </button>
+
+              {showProfileMenu && (
+                <>
+                  {/* Backdrop */}
+                  <div className="fixed inset-0 z-30" onClick={() => setShowProfileMenu(false)} />
+                  {/* Dropdown */}
+                  <div className="absolute right-0 top-full mt-2 w-48 rounded-2xl border border-slate-700/60 shadow-2xl overflow-hidden z-40"
+                    style={{ background: THEMES[settings.theme].card }}>
+                    {[
+                      { icon: <User className="w-3.5 h-3.5" />, label: 'Profile', action: () => { setShowProfile(true); setShowProfileMenu(false); } },
+                      { icon: <BarChart2 className="w-3.5 h-3.5" />, label: 'Learning Progress', action: () => { setShowProfile(true); setShowProfileMenu(false); } },
+                      { icon: <Settings className="w-3.5 h-3.5" />, label: 'Settings', action: () => { setShowSettings(true); setShowProfileMenu(false); } },
+                    ].map(item => (
+                      <button key={item.label} onClick={item.action}
+                        className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-xs text-slate-300 hover:bg-slate-700/40 transition-colors">
+                        <span className="text-indigo-400">{item.icon}</span>{item.label}
+                      </button>
+                    ))}
+                    <div className="border-t border-slate-700/40" />
+                    <button onClick={() => { handleSignOut(); setShowProfileMenu(false); }}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 text-left text-xs text-rose-400 hover:bg-rose-500/10 transition-colors">
+                      <LogOut className="w-3.5 h-3.5" />Sign Out
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -1647,7 +1691,7 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
 
           </div>
           <div className="max-w-4xl mx-auto mt-3 pt-3 border-t border-slate-700/30 flex justify-end">
-            <span className="text-[10px] text-slate-600 font-mono">v1.2.0</span>
+            <span className="text-[10px] text-slate-600 font-mono">v1.2.1</span>
           </div>
 
           {/* Mobile done button */}
