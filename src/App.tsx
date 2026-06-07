@@ -364,20 +364,57 @@ export default function App() {
     }
 
     const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
+    // continuous eliminates restart gaps; interimResults shows words as they're spoken
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 3;
 
-    recognition.onstart = () => setStatus('listening');
+    let accumulated = '';
+    let submitTimer: ReturnType<typeof setTimeout> | null = null;
 
-    recognition.onresult = (event: any) => {
-      const text = (event.results[0][0].transcript as string).trim();
-      if (text.length > 2) {
+    const submitAccumulated = () => {
+      const text = accumulated.trim();
+      accumulated = '';
+      if (text.length > 2 && !isSpeakingRef.current) {
         setCurrentTranscript(text);
         processUserSpeechRef.current(text);
       }
     };
 
+    recognition.onstart = () => setStatus('listening');
+
+    recognition.onresult = (event: any) => {
+      let interimText = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        // Pick the alternative with the highest confidence score
+        let best = event.results[i][0];
+        for (let j = 1; j < event.results[i].length; j++) {
+          if ((event.results[i][j].confidence ?? 0) > (best.confidence ?? 0)) best = event.results[i][j];
+        }
+        if (event.results[i].isFinal) {
+          accumulated += (accumulated ? ' ' : '') + best.transcript.trim();
+        } else {
+          interimText = best.transcript.trim();
+        }
+      }
+
+      // Show live preview while the user is speaking
+      const preview = (accumulated + (interimText ? ' ' + interimText : '')).trim();
+      if (preview) setCurrentTranscript(preview);
+
+      // Debounce: submit after 1000 ms of silence
+      if (accumulated.length > 2) {
+        if (submitTimer) clearTimeout(submitTimer);
+        submitTimer = setTimeout(submitAccumulated, 1000);
+      }
+    };
+
     recognition.onend = () => {
+      if (submitTimer) { clearTimeout(submitTimer); submitTimer = null; }
+      // Submit anything pending before the debounce fired
+      if (accumulated.trim().length > 2 && !isSpeakingRef.current) submitAccumulated();
+      accumulated = '';
+
       if (isCallActiveRef.current && !isSpeakingRef.current && !isMutedRef.current) {
         try { recognition.start(); } catch (_) {}
       } else if (!isCallActiveRef.current) {
@@ -386,7 +423,6 @@ export default function App() {
     };
 
     recognition.onerror = (e: any) => {
-      // 'no-speech', 'aborted', and 'network' are non-fatal transient events
       if (e.error !== 'no-speech' && e.error !== 'aborted' && e.error !== 'network') {
         console.error('Speech recognition error:', e.error);
       }
@@ -951,88 +987,97 @@ Be encouraging and concrete. Maximum 3 sentences total. Do NOT wait for the stud
     const hist = historyRef.current;
     const userMsgs = hist.filter(m => m.sender === 'user').length;
 
-    const reportSystemPrompt = `You are an expert English conversation coach for Brazilian students. Generate a warm, specific, and encouraging session report based ONLY on what actually happened in this conversation. Use real examples from the chat. Never be generic.
+    const reportSystemPrompt = `You are an expert English conversation coach for Brazilian students. Generate a warm, evidence-based session report using ONLY real examples from this conversation. Every score must be explained with at least one quote. Never be generic.
 
 Write the entire report in English. Structure it EXACTLY as follows:
 
 # Conversation Performance Score
 
 ## Communication Score
-Measures: ability to express ideas, keep conversation flowing, clarity.
 Score: X/10
-Comment: [one specific observation from this session]
+Positive Evidence:
+Student: "[exact quote]"
+Reason: [why this demonstrates effective communication]
+Improvement Opportunity: [only if score < 9; one concrete suggestion]
 
 ## Vocabulary Score
-Measures: variety of vocabulary, appropriate word choice, topic-related words.
 Score: X/10
-Comment: [one specific observation]
+Positive Evidence:
+Student: "[exact quote]"
+Reason: [why this word/phrase choice was strong]
+Improvement Opportunity: [only if applicable; suggest richer vocabulary with example]
 
 ## Grammar Score
-Measures: sentence accuracy, correct structure, consistency.
 Score: X/10
-Comment: [one specific observation]
+Positive Evidence:
+Student: "[sentence that was mostly correct]"
+Reason: [brief note on what was right]
+Improvement Opportunities: [required if score < 8; for each error:]
+  Student: "[original sentence]"
+  Correction: "[corrected sentence]"
+  Explanation: [short rule, 1 sentence]
 
 ## Verb Tense Score
-Measures: correct use of verb tenses, variety used, consistency.
 Score: X/10
-Comment: [one specific observation]
+Positive Evidence:
+Student: "[exact quote]"
+Reason: [tense used correctly — name the tense]
+Improvement Opportunities: [required if score < 8]
+  Student: "[original]"
+  Suggested: "[corrected]"
+  Reason: [which tense should be used and why]
 
 ## Fluency Score
-Measures: natural flow, ability to answer without hesitation, expanding ideas.
 Score: X/10
-Comment: [one specific observation]
+Positive Evidence:
+- [observation about how naturally the student kept the conversation going]
+- [observation about response relevance or expansion]
+Improvement Opportunity: [only if needed]
 
 ## Confidence Score
-Measures: willingness to participate, answering questions, engagement.
 Score: X/10
-Comment: [one specific observation]
+Positive Evidence:
+- [observation about participation willingness]
+- [observation about engagement or answer quality]
 
 ---
 
 # Overall Conversation Score
-Calculate the overall score: average of all 6 scores × 10, rounded to nearest whole number.
+Average the 6 scores, multiply by 10, round to nearest whole number.
 Overall Score: XX/100
-
-Performance Level:
-90–100 = Excellent | 80–89 = Very Good | 70–79 = Good | 60–69 = Developing | Below 60 = Needs More Practice
-
-Level: [level name]
+Level: [Excellent 90-100 | Very Good 80-89 | Good 70-79 | Developing 60-69 | Needs More Practice <60]
 
 ---
 
-# Strengths Identified
-List 3 to 5 positives using real examples from the conversation. Always include at least 3, even if mistakes were made.
-✅ [specific strength]
+# What You Did Well
+Minimum 3 items. Use real examples. Always include at least 3, even with mistakes.
+✅ [specific strength with example]
 ✅ [specific strength]
 ✅ [specific strength]
 
----
-
-# Areas for Improvement
-Maximum 3 items. Most impactful only. Do not overwhelm the student.
-📌 [area] — [brief, actionable tip]
+# What You Can Improve
+Maximum 3 items. Most impactful only.
+📌 [area] — [actionable tip]
 📌 [area] — [tip]
 
 ---
 
 # Best Moment of the Conversation
-Highlight one specific sentence, idea, or response that demonstrated strong English.
-"[exact quote or paraphrase from the conversation]"
-Brief explanation of why it stood out.
+"[exact or close paraphrase of their best sentence/idea]"
+[One sentence explaining why it stood out]
 
 ---
 
-# Next Learning Goal
-Recommend ONE priority topic only.
-Next Focus: [topic]
-Reason: [one sentence based on what you observed in this session]
+# Priority Study Topic
+Next Focus: [one topic only]
+Reason: [one sentence based on what you observed]
+Estimated Impact: [how improving this topic would increase their level — 1–2 sentences]
 
 ---
 
 # Motivation Summary
-End with 2–3 warm coaching sentences. Focus on progress, not perfection.
-Highlight genuine strengths, name one thing to feel proud of, and encourage the next session.
-Never end by discussing only mistakes.
+2–3 warm sentences. Recognize real progress, name one specific thing to feel proud of, encourage the next session.
+Never end with criticism only.
 
 Stats: ${userMsgs} student messages in this session.`;
 
@@ -1220,7 +1265,7 @@ Stats: ${userMsgs} student messages in this session.`;
 
           </div>
           <div className="max-w-4xl mx-auto mt-3 pt-3 border-t border-slate-700/30 flex justify-end">
-            <span className="text-[10px] text-slate-600 font-mono">v1.0.1</span>
+            <span className="text-[10px] text-slate-600 font-mono">v1.0.2</span>
           </div>
         </div>
       )}
