@@ -1222,43 +1222,52 @@ Stats: ${userMsgs} student messages in this session.`;
           {/* ── Luna call screen (idle) or compact call bar (active) ── */}
           {isCallActive ? (
             /* Compact bar during call */
-            <div className="shrink-0 flex items-center gap-3 border border-slate-800/60 rounded-2xl px-4 py-3 shadow-lg" style={{ background: 'var(--t-card)' }}>
-              <div className="shrink-0 w-12 h-12 overflow-hidden" style={{ clipPath: 'circle(50%)' }}>
-                <div style={{ transform: 'scale(0.5)', transformOrigin: 'top left', width: '96px', height: '96px' }}>
-                  <LunaAvatar status={status} />
+            <div className="shrink-0 border border-slate-800/60 rounded-2xl p-3 shadow-lg" style={{ background: 'var(--t-card)' }}>
+              {/* Row 1: avatar + name/status + end button */}
+              <div className="flex items-center gap-2.5">
+                <div className="shrink-0 w-10 h-10 overflow-hidden" style={{ clipPath: 'circle(50%)' }}>
+                  <div style={{ transform: 'scale(0.42)', transformOrigin: 'top left', width: '96px', height: '96px' }}>
+                    <LunaAvatar status={status} />
+                  </div>
                 </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1">
+                    <span className="text-sm font-bold text-white leading-none">Luna</span>
+                    <Heart className="w-3 h-3 text-pink-500 fill-pink-500 shrink-0" />
+                  </div>
+                  <span className="text-[10px] text-indigo-400 font-mono capitalize">{status}</span>
+                </div>
+                <button onClick={endCall}
+                  className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-1 transition-all">
+                  <PhoneOff className="w-3 h-3" />
+                  End
+                </button>
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-bold text-white">Luna</span>
-                  <Heart className="w-3 h-3 text-pink-500 fill-pink-500" />
+
+              {/* Row 2: badge + mute/interrupt controls */}
+              <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-700/30">
+                <div className="flex-1 min-w-0">
                   {settings.correctionTiming === 'summary' && settings.correctionLevel !== 'off' && (
-                    <span className="text-[9px] font-bold bg-violet-800/60 text-violet-300 px-1.5 py-0.5 rounded-full border border-violet-700/40">
+                    <span className="text-[9px] font-bold bg-violet-800/60 text-violet-300 px-2 py-0.5 rounded-full border border-violet-700/40">
                       {corrections.length > 0 ? `${corrections.length} logged` : 'logging'}
                     </span>
                   )}
                   {settings.correctionTiming === 'adaptive' && settings.correctionLevel !== 'off' && (
-                    <span className="text-[9px] font-bold bg-amber-900/60 text-amber-300 px-1.5 py-0.5 rounded-full border border-amber-700/40">
+                    <span className="text-[9px] font-bold bg-amber-900/60 text-amber-300 px-2 py-0.5 rounded-full border border-amber-700/40">
                       {corrections.length > 0 ? `${corrections.length} noted` : 'analyzing'}
                     </span>
                   )}
                 </div>
-                <span className="text-[10px] text-indigo-400 font-mono capitalize">{status}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <button onClick={interruptLuna} disabled={status !== 'speaking'} title="Interrupt"
-                  className="p-2 rounded-xl bg-amber-600/70 hover:bg-amber-600 disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all">
-                  <PhoneOff className="w-3.5 h-3.5" />
-                </button>
-                <button onClick={toggleMute} title={isMuted ? 'Unmute' : 'Mute'}
-                  className={`p-2 rounded-xl transition-all text-white ${isMuted ? 'bg-rose-700 hover:bg-rose-600' : 'bg-slate-700 hover:bg-slate-600'}`}>
-                  {isMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
-                </button>
-                <button onClick={endCall}
-                  className="px-3 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-1.5 transition-all">
-                  <PhoneOff className="w-3.5 h-3.5" />
-                  End
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button onClick={interruptLuna} disabled={status !== 'speaking'} title="Interrupt Luna"
+                    className="p-1.5 rounded-lg bg-amber-600/70 hover:bg-amber-600 disabled:opacity-25 disabled:cursor-not-allowed text-white transition-all">
+                    <PhoneOff className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={toggleMute} title={isMuted ? 'Unmute' : 'Mute mic'}
+                    className={`p-1.5 rounded-lg transition-all text-white ${isMuted ? 'bg-rose-700 hover:bg-rose-600' : 'bg-slate-700 hover:bg-slate-600'}`}>
+                    {isMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
