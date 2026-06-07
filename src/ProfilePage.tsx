@@ -674,15 +674,15 @@ export function ProfilePage({
           )}
         </div>
 
-        {/* ── Sign Out ─────────────────────────────────────────────────────── */}
+        </>}
+
+        {/* ── Sign Out — always visible ─────────────────────────────────────── */}
         <button
           onClick={onSignOut}
           className="w-full py-3 rounded-2xl border border-rose-500/20 text-rose-400 text-sm font-semibold hover:bg-rose-500/10 transition-colors flex items-center justify-center gap-2">
           Sign Out
           <ChevronRight className="w-4 h-4" />
         </button>
-
-        </>}
 
       </div>
     </div>
