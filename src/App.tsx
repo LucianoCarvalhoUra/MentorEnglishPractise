@@ -907,12 +907,74 @@ Be encouraging and concrete. Maximum 3 sentences total. Do NOT wait for the stud
     }
   };
 
+  // Called when a previous session report is loaded — generates a structured learning plan
+  const generateLearningPlan = async () => {
+    if (!GROQ_KEY && !OPENROUTER_KEY && !GEMINI_KEY) { resumeListening(); return; }
+    setStatus('analyzing');
+    const languageNames: Record<string, string> = { 'en-US': 'English', 'es-ES': 'Spanish', 'fr-FR': 'French', 'de-DE': 'German' };
+
+    const planPrompt = `You are Luna, an expert ${languageNames[targetLanguage]} conversation coach for Brazilian students.
+A student has provided their previous session report. Generate a clear, warm, and structured learning plan for today's session.
+
+PREVIOUS SESSION REPORT:
+${previousReport.trim()}
+
+Write the plan in English. Use this EXACT format:
+
+## Previous Session Overview
+[2–3 sentences: strongest skill observed, weakest area, most frequent mistake, and the recommended study topic]
+
+## Today's Focus Areas
+1. [Most important priority — based on lowest score or recommended topic]
+2. [Second priority]
+3. [Third priority]
+
+## Conversation Strategy
+Today I will help you practice:
+• [specific practice area]
+• [specific practice area]
+• [specific practice area]
+• [specific practice area]
+
+I will introduce new vocabulary naturally and create opportunities to practice target structures without interrupting the flow of conversation.
+
+## Suggested Topics
+Topics that reinforce today's goals:
+• [topic 1]
+• [topic 2]
+• [topic 3]
+• [topic 4]
+• [topic 5]
+
+## Primary Goal
+[One clear, motivating goal for this session — one sentence]
+
+## Session Challenge
+[One small, concrete challenge based on the weakest area — encouraging, not intimidating]
+
+---
+Based on your previous report, this is the learning plan I recommend for today. Would you like to follow this plan, or would you prefer to focus on another topic?`;
+
+    try {
+      const planText = await callLLM(planPrompt, []);
+      if (!planText) { resumeListening(); return; }
+      const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      setHistory([{ id: crypto.randomUUID(), sender: 'luna', text: planText, timestamp }]);
+      speak("I've reviewed your previous session report and prepared a personalized learning plan for today — you can read it in the chat. Would you like to follow this plan, or would you prefer to focus on a different topic?");
+    } catch (err: any) {
+      console.error('Learning plan error:', err);
+      generateOpeningGreeting();
+    }
+  };
+
   // Trigger the greeting once whenever a call begins
   useEffect(() => {
     if (isCallActive && !focusGreetingDoneRef.current) {
       focusGreetingDoneRef.current = true;
       if (focusTopic) {
         generateFocusGreeting(focusTopic);
+      } else if (previousReport.trim()) {
+        generateLearningPlan();
       } else {
         generateOpeningGreeting();
       }
@@ -1316,7 +1378,7 @@ Keep the comparison qualitative and specific. Do not compare raw scores directly
 
           </div>
           <div className="max-w-4xl mx-auto mt-3 pt-3 border-t border-slate-700/30 flex justify-end">
-            <span className="text-[10px] text-slate-600 font-mono">v1.0.4</span>
+            <span className="text-[10px] text-slate-600 font-mono">v1.0.5</span>
           </div>
         </div>
       )}
