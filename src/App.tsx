@@ -1353,13 +1353,19 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
             </div>
 
             {(() => {
+              // Exclude clearly male voices; include confirmed-female + neutral names
+              const maleKw = [' male', 'mark', 'david', 'james', 'richard', 'george',
+                'daniel', 'fred', 'thomas', 'paul', 'oliver', 'reed', 'ralph', 'albert', 'guy'];
               const femaleKw = ['zira', 'samantha', 'victoria', 'allison', 'susan', 'aria', 'luna',
                 'jenny', 'michelle', 'female', 'woman', 'fiona', 'moira', 'karen', 'tessa',
                 'eva', 'maria', 'helena', 'hazel', 'linda', 'neerja', 'heera', 'cortana'];
-              const langVoices = availableVoices.filter(v =>
-                (v.lang === targetLanguage || v.lang.startsWith(targetLanguage.split('-')[0])) &&
-                femaleKw.some(k => v.name.toLowerCase().includes(k))
-              ).slice(0, 7);
+              const langVoices = availableVoices.filter(v => {
+                const n = v.name.toLowerCase();
+                const isLang = v.lang === targetLanguage || v.lang.startsWith(targetLanguage.split('-')[0]);
+                const isMale = maleKw.some(k => n.includes(k));
+                const isFemale = femaleKw.some(k => n.includes(k));
+                return isLang && (isFemale || !isMale); // keep confirmed-female + neutral
+              }).slice(0, 8);
               const shortName = (name: string) => name.replace(/\s*\(.*?\)\s*/g, '').replace('Microsoft ', '').replace('Google ', '').trim().split(' ').slice(0, 2).join(' ');
               return langVoices.length > 0 ? (
                 <div className="col-span-2 md:col-span-4">
@@ -1423,7 +1429,7 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
 
           </div>
           <div className="max-w-4xl mx-auto mt-3 pt-3 border-t border-slate-700/30 flex justify-end">
-            <span className="text-[10px] text-slate-600 font-mono">v1.1.1</span>
+            <span className="text-[10px] text-slate-600 font-mono">v1.1.2</span>
           </div>
         </div>
       )}
