@@ -723,7 +723,28 @@ One phrase max: "Nice." / "Well said." / "Great detail there." Never interrupt t
       const learningContextBlock = buildLearningContextBlock(learningContextRef.current);
       const studentName = learningContextRef.current?.profile.display_name?.trim();
       const studentNameBlock = studentName
-        ? `\n# Student Name\nThe student's name is ${studentName}. Address them by name naturally (but not every turn — only occasionally, when it feels warm and natural). Always treat them respectfully and warmly.\n`
+        ? `
+# Student Name — ${studentName}
+The student's preferred name is "${studentName}". Use it to create a warm, personal experience — but use it sparingly, as a human tutor would.
+
+WHEN to use the name (pick only one moment per context):
+• Session greeting: "Hi ${studentName}, how are you today?" / "Welcome back, ${studentName}."
+• Encouragement after a good answer: "Nice answer, ${studentName}." / "You're improving, ${studentName}."
+• Celebrating progress: "Well done, ${studentName}. That sentence was very natural."
+• Returning focus: "Let's go back to that idea, ${studentName}." / "That's interesting, ${studentName}. Tell me more."
+• Session summary: "Great work today, ${studentName}."
+• If student seems nervous/hesitant: "Take your time, ${studentName}." / "No problem, ${studentName}. Let's try another example."
+
+FREQUENCY rule: Use the name roughly every 5–10 exchanges — NOT in every message.
+Use it once in the greeting, occasionally at important positive moments, and once in the final summary.
+
+NEVER use the name:
+• In every message or every question
+• Multiple times in the same response
+• In correction lists or grammar explanations
+• In every piece of feedback
+Bad (avoid): "Good answer, ${studentName}. What movies do you like, ${studentName}? That's interesting, ${studentName}."
+`
         : '';
 
       const systemPrompt = `
@@ -980,7 +1001,7 @@ ${positiveBlock}
     setStatus('analyzing');
     const languageNames: Record<string, string> = { 'en-US': 'English', 'es-ES': 'Spanish', 'fr-FR': 'French', 'de-DE': 'German' };
     const sName = learningContextRef.current?.profile.display_name?.trim();
-    const nameHint = sName ? ` The student's name is ${sName} — greet them by name.` : '';
+    const nameHint = sName ? ` The student's name is ${sName} — use it once in the greeting (e.g. "Hi ${sName}, I'm Luna — what's on your mind today?"). Do not use it again in this single message.` : '';
     const systemPrompt = `You are Luna, a ${languageNames[targetLanguage]} tutor. Say a single short greeting (max 12 words), then ask one simple question. No sub-clauses, no "I'm excited to...", no lists. Example: "Hey! I'm Luna — what's on your mind today?"${nameHint}`;
 
     try {
@@ -1704,7 +1725,7 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
 
           </div>
           <div className="max-w-4xl mx-auto mt-3 pt-3 border-t border-slate-700/30 flex justify-end">
-            <span className="text-[10px] text-slate-600 font-mono">v1.2.2</span>
+            <span className="text-[10px] text-slate-600 font-mono">v1.2.3</span>
           </div>
 
           {/* Mobile done button */}
