@@ -120,8 +120,9 @@ interface AppSettings {
   speechRate: 'slow' | 'normal' | 'fast';
   modelQuality: 'fast' | 'quality';
   theme: ThemeName;
+  voiceName: string;
 }
-const DEFAULT_SETTINGS: AppSettings = { correctionLevel: 'gentle', correctionTiming: 'adaptive', speechRate: 'normal', modelQuality: 'fast', theme: 'midnight' };
+const DEFAULT_SETTINGS: AppSettings = { correctionLevel: 'gentle', correctionTiming: 'adaptive', speechRate: 'normal', modelQuality: 'fast', theme: 'midnight', voiceName: '' };
 const SETTINGS_KEY = 'me_settings';
 const SPEECH_RATES: Record<AppSettings['speechRate'], number> = { slow: 0.75, normal: 0.95, fast: 1.2 };
 const GROQ_MODELS: Record<AppSettings['modelQuality'], string> = {
@@ -302,6 +303,7 @@ export default function App() {
     catch { return DEFAULT_SETTINGS; }
   });
   const [showSettings, setShowSettings] = useState(false);
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [previousReport, setPreviousReport] = useState('');
   const [showReportInput, setShowReportInput] = useState(false);
   const [copiedReportId, setCopiedReportId] = useState<string | null>(null);
@@ -352,7 +354,11 @@ export default function App() {
 
   // Preload voices — getVoices() returns [] on the first call until voiceschanged fires
   useEffect(() => {
-    const load = () => { voicesRef.current = window.speechSynthesis.getVoices(); };
+    const load = () => {
+      const v = window.speechSynthesis.getVoices();
+      voicesRef.current = v;
+      setAvailableVoices(v);
+    };
     load();
     window.speechSynthesis.addEventListener('voiceschanged', load);
     return () => window.speechSynthesis.removeEventListener('voiceschanged', load);
@@ -780,13 +786,18 @@ ${positiveBlock}
     );
   };
 
+  const resolveVoice = (voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | undefined =>
+    settings.voiceName
+      ? voices.find(v => v.name === settings.voiceName) ?? pickVoice(voices, targetLanguage)
+      : pickVoice(voices, targetLanguage);
+
   const replaySpeak = (text: string) => {
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = targetLanguage;
     const voices = voicesRef.current.length ? voicesRef.current : window.speechSynthesis.getVoices();
-    const voice = pickVoice(voices, targetLanguage);
+    const voice = resolveVoice(voices);
     if (voice) utterance.voice = voice;
     utterance.rate = SPEECH_RATES[settings.speechRate];
     utterance.pitch = 1.1;
@@ -805,7 +816,7 @@ ${positiveBlock}
     utterance.lang = targetLanguage;
 
     const voices = voicesRef.current.length ? voicesRef.current : window.speechSynthesis.getVoices();
-    const voice = pickVoice(voices, targetLanguage);
+    const voice = resolveVoice(voices);
     if (voice) utterance.voice = voice;
 
     utterance.rate = SPEECH_RATES[settings.speechRate];
@@ -1319,6 +1330,31 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
               </div>
             </div>
 
+            {(() => {
+              const langVoices = availableVoices.filter(v =>
+                v.lang === targetLanguage || v.lang.startsWith(targetLanguage.split('-')[0])
+              ).slice(0, 7);
+              const shortName = (name: string) => name.replace(/\s*\(.*?\)\s*/g, '').replace('Microsoft ', '').replace('Google ', '').trim().split(' ').slice(0, 2).join(' ');
+              return langVoices.length > 0 ? (
+                <div className="col-span-2 md:col-span-4">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Voice</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button onClick={() => setSettings(s => ({ ...s, voiceName: '' }))}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        settings.voiceName === '' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                      }`}>Auto</button>
+                    {langVoices.map(v => (
+                      <button key={v.name} onClick={() => setSettings(s => ({ ...s, voiceName: v.name }))}
+                        title={v.name}
+                        className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                          settings.voiceName === v.name ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                        }`}>{shortName(v.name)}</button>
+                    ))}
+                  </div>
+                </div>
+              ) : null;
+            })()}
+
             <div className="col-span-2 md:col-span-4">
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Theme</p>
               <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
@@ -1346,7 +1382,7 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
 
           </div>
           <div className="max-w-4xl mx-auto mt-3 pt-3 border-t border-slate-700/30 flex justify-end">
-            <span className="text-[10px] text-slate-600 font-mono">v1.0.8</span>
+            <span className="text-[10px] text-slate-600 font-mono">v1.0.9</span>
           </div>
         </div>
       )}
@@ -1516,11 +1552,25 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
           {/* Session score + study panel */}
           {sessionScore !== null && !isCallActive && (
             <div className="shrink-0 border border-slate-700/50 rounded-2xl p-4 space-y-4" style={{ background: 'var(--t-card)' }}>
+              {/* Luna header */}
+              <div className="flex items-center gap-3 pb-3 border-b border-slate-700/40">
+                <div className="shrink-0 w-10 h-10 overflow-hidden" style={{ clipPath: 'circle(50%)' }}>
+                  <div style={{ transform: 'scale(0.42)', transformOrigin: 'top left', width: '96px', height: '96px' }}>
+                    <LunaAvatar status="idle" />
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1">
+                    <span className="text-sm font-bold text-white leading-none">Luna</span>
+                    <Heart className="w-3 h-3 text-pink-500 fill-pink-500 shrink-0" />
+                  </div>
+                  <span className="text-[10px] text-indigo-400">Session Complete</span>
+                </div>
+              </div>
               <div className="flex items-center gap-4">
                 <ScoreRing score={sessionScore} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-white">Session Complete</p>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-400">
                     {corrections.length === 0
                       ? 'No corrections — flawless!'
                       : `${corrections.length} correction${corrections.length > 1 ? 's' : ''} · ${history.filter(m => m.sender === 'user').length} messages`}
