@@ -311,6 +311,7 @@ export default function App() {
   const [isMuted, setIsMuted] = useState(false);
   const [showHistory, setShowHistory] = useState(true);
   const [sessionScore, setSessionScore] = useState<number | null>(null);
+  const [isRinging, setIsRinging] = useState(false);
 
   const recognitionRef = useRef<any>(null);
   const isCallActiveRef = useRef(false);
@@ -327,6 +328,7 @@ export default function App() {
   const isMutedRef = useRef(false);
   const processUserSpeechRef = useRef<(text: string) => void>(() => {});
   const historyEndRef = useRef<HTMLDivElement>(null);
+  const ringTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }, [settings]);
 
@@ -879,9 +881,29 @@ Be encouraging and concrete. Maximum 3 sentences total. Do NOT wait for the stud
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCallActive, focusTopic]);
 
-  const startCall = () => {
-    if (!GROQ_KEY && !OPENROUTER_KEY && !GEMINI_KEY) { alert("Please add VITE_GROQ_API_KEY, VITE_OPENROUTER_API_KEY, or VITE_GEMINI_API_KEY to your .env file."); return; }
-    if (!recognitionRef.current) { alert("Speech recognition requires Chrome or Edge."); return; }
+  const playRingTone = () => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const burst = (t: number) => {
+        [440, 480].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.frequency.value = freq;
+          const s = t + i * 0.45;
+          gain.gain.setValueAtTime(0, s);
+          gain.gain.linearRampToValueAtTime(0.1, s + 0.05);
+          gain.gain.setValueAtTime(0.1, s + 0.32);
+          gain.gain.linearRampToValueAtTime(0, s + 0.4);
+          osc.start(s); osc.stop(s + 0.42);
+        });
+      };
+      burst(ctx.currentTime);
+      burst(ctx.currentTime + 2);
+    } catch (_) {}
+  };
+
+  const actuallyStartCall = () => {
     playBeep('start');
     setIsCallActive(true);
     isCallActiveRef.current = true;
@@ -890,7 +912,22 @@ Be encouraging and concrete. Maximum 3 sentences total. Do NOT wait for the stud
     setStudySummary([]);
     setSessionScore(null);
     resetSilenceTimeout();
-    // Recognition starts automatically after Aria's opening greeting (speak → resumeListening)
+  };
+
+  const cancelCall = () => {
+    if (ringTimeoutRef.current) clearTimeout(ringTimeoutRef.current);
+    setIsRinging(false);
+  };
+
+  const startCall = () => {
+    if (!GROQ_KEY && !OPENROUTER_KEY && !GEMINI_KEY) { alert("Please add VITE_GROQ_API_KEY, VITE_OPENROUTER_API_KEY, or VITE_GEMINI_API_KEY to your .env file."); return; }
+    if (!recognitionRef.current) { alert("Speech recognition requires Chrome or Edge."); return; }
+    setIsRinging(true);
+    playRingTone();
+    ringTimeoutRef.current = setTimeout(() => {
+      setIsRinging(false);
+      actuallyStartCall();
+    }, 4000);
   };
 
   const endCall = () => {
@@ -1029,6 +1066,48 @@ Stats: ${userMsgs} student messages in this session.`;
   return (
     <div className="h-screen text-slate-200 flex flex-col overflow-hidden font-sans"
       style={{ '--t-card': THEMES[settings.theme].card, '--t-bubble': THEMES[settings.theme].bubble, '--t-report': THEMES[settings.theme].report, background: THEMES[settings.theme].main } as React.CSSProperties}>
+
+      {/* ── Ringing overlay ── */}
+      {isRinging && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-between pb-14 pt-14"
+          style={{ background: 'linear-gradient(170deg, #1e0a48 0%, #0c0328 55%, #060118 100%)' }}>
+
+          {/* Caller info */}
+          <div className="text-center">
+            <p className="text-indigo-300/50 text-[11px] uppercase tracking-[0.3em] mb-3">Voice Call</p>
+            <h1 className="text-5xl font-bold text-white tracking-tight">Luna</h1>
+            <p className="text-slate-400/70 text-sm mt-2 flex items-center justify-center gap-2">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-indigo-400 animate-ping" />
+              Calling...
+            </p>
+          </div>
+
+          {/* Luna avatar with float + pulse rings */}
+          <div className="relative flex items-center justify-center">
+            <div className="absolute w-72 h-72 rounded-full border border-indigo-500/20"
+              style={{ animation: 'ringPulse 2s ease-out infinite' }} />
+            <div className="absolute w-52 h-52 rounded-full border border-indigo-400/25"
+              style={{ animation: 'ringPulse 2s ease-out infinite', animationDelay: '0.6s' }} />
+            <div className="absolute w-36 h-36 rounded-full border border-indigo-300/30"
+              style={{ animation: 'ringPulse 2s ease-out infinite', animationDelay: '1.2s' }} />
+            <div className="absolute w-40 h-40 rounded-full bg-indigo-600/15 blur-2xl animate-pulse" />
+            <div style={{ animation: 'lunaFloat 3s ease-in-out infinite' }}>
+              <div style={{ transform: 'scale(2.6)', transformOrigin: 'center' }}>
+                <LunaAvatar status="idle" />
+              </div>
+            </div>
+          </div>
+
+          {/* Hang up */}
+          <div className="flex flex-col items-center gap-3">
+            <button onClick={cancelCall}
+              className="w-16 h-16 rounded-full bg-rose-600 hover:bg-rose-500 active:scale-95 flex items-center justify-center transition-all shadow-2xl shadow-rose-900/50">
+              <PhoneOff className="w-7 h-7 text-white" />
+            </button>
+            <span className="text-slate-600 text-xs">Cancel</span>
+          </div>
+        </div>
+      )}
 
       {/* ── Header ── */}
       <header className="flex-none flex items-center justify-between px-5 md:px-8 py-3.5 border-b border-slate-800/50 backdrop-blur z-10"
@@ -1225,7 +1304,7 @@ Stats: ${userMsgs} student messages in this session.`;
 
               {/* Call button */}
               <div className="shrink-0 px-4 pb-5">
-                <button onClick={startCall} disabled={!isSpeechSupported}
+                <button onClick={startCall} disabled={!isSpeechSupported || isRinging}
                   className="w-full py-3.5 rounded-full font-semibold text-sm bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-900/30">
                   <Phone className="w-4 h-4" />
                   {focusTopic ? `Practice · ${focusTopic}` : 'Start Session'}
