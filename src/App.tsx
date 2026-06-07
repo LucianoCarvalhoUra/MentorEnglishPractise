@@ -1,6 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { Phone, PhoneOff, Sparkles, MessageSquare, Heart, Globe, BookOpen, X, Mic, MicOff, ChevronUp, Volume2, User, Settings, FileText, CheckCircle2, Copy } from 'lucide-react';
+import { Phone, PhoneOff, Sparkles, MessageSquare, Heart, Globe, BookOpen, X, Mic, MicOff, ChevronUp, Volume2, User, Settings, FileText, CheckCircle2, Copy, LogOut } from 'lucide-react';
+import {
+  getOrCreateProfile, loadLearningContext, saveSessionData, parseReportScores,
+  buildLearningContextBlock,
+  type StudentProfile, type LearningContext,
+} from './supabase';
 
 // Provider cascade: Groq (fastest, free) → OpenRouter (free) → Gemini (fallback)
 const GROQ_KEY: string | undefined = import.meta.env.VITE_GROQ_API_KEY;
@@ -310,6 +315,14 @@ export default function App() {
   const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<'luna' | 'chat'>('luna');
 
+  // ── Student identity + learning memory ──
+  const [emailInput, setEmailInput] = useState('');
+  const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null);
+  const [learningContext, setLearningContext] = useState<LearningContext | null>(null);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const learningContextRef = useRef<LearningContext | null>(null);
+
   // Study system
   const [corrections, setCorrections] = useState<Correction[]>([]);
   const [studySummary, setStudySummary] = useState<StudyItem[]>([]);
@@ -338,6 +351,20 @@ export default function App() {
   const ringTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }, [settings]);
+
+  // Keep context ref in sync
+  useEffect(() => { learningContextRef.current = learningContext; }, [learningContext]);
+
+  // Auto-login from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('mentor_email');
+    if (saved) {
+      handleEmailSubmit(saved);
+    } else {
+      setShowEmailModal(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => { historyRef.current = history; }, [history]);
   useEffect(() => {
@@ -689,10 +716,13 @@ SILENT REINFORCEMENT (when student uses a target structure successfully):
 One phrase max: "Nice." / "Well said." / "Great detail there." Never interrupt the flow.`
         : '';
 
+      const learningContextBlock = buildLearningContextBlock(learningContextRef.current);
+
       const systemPrompt = `
 # Identity
 You are Luna, a warm ${languageNames[targetLanguage]} conversation partner for Brazilian students. You feel like a friendly, patient private tutor — not a teacher or examiner.
 ${focusLine}
+${learningContextBlock}
 ${previousReportBlock}
 
 # SHORT RESPONSE RULE — HIGHEST PRIORITY
@@ -1042,6 +1072,32 @@ Good examples:
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCallActive, focusTopic]);
 
+  const handleEmailSubmit = async (emailOverride?: string) => {
+    const email = (emailOverride ?? emailInput).trim();
+    if (!email.includes('@')) return;
+    setIsLoadingProfile(true);
+    try {
+      const profile = await getOrCreateProfile(email);
+      setStudentProfile(profile);
+      localStorage.setItem('mentor_email', email);
+      const ctx = await loadLearningContext(profile.id);
+      setLearningContext(ctx);
+      setShowEmailModal(false);
+    } catch {
+      if (!emailOverride) setShowEmailModal(true);
+    } finally {
+      setIsLoadingProfile(false);
+    }
+  };
+
+  const handleSignOut = () => {
+    localStorage.removeItem('mentor_email');
+    setStudentProfile(null);
+    setLearningContext(null);
+    setEmailInput('');
+    setShowEmailModal(true);
+  };
+
   const playRingTone = () => {
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -1245,6 +1301,18 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }]);
 
+      // Save session data to Supabase (silent — don't block the UI)
+      const profileId = studentProfile?.id;
+      if (profileId) {
+        const scores = parseReportScores(reportText);
+        saveSessionData(profileId, scores).then(() => {
+          // Refresh learning context in background
+          loadLearningContext(profileId).then(ctx => {
+            if (ctx) setLearningContext(ctx);
+          });
+        }).catch(() => {});
+      }
+
       speak("Your session report is ready! Great work today. Keep it up!");
     } catch (e: any) {
       setHistory(prev => [...prev, {
@@ -1278,6 +1346,58 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
   return (
     <div className="h-screen text-slate-200 flex flex-col overflow-hidden font-sans"
       style={{ '--t-card': THEMES[settings.theme].card, '--t-bubble': THEMES[settings.theme].bubble, '--t-report': THEMES[settings.theme].report, background: THEMES[settings.theme].main } as React.CSSProperties}>
+
+      {/* ── Email / Identity Modal ── */}
+      {showEmailModal && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-6"
+          style={{ background: THEMES[settings.theme].main }}>
+          <div className="w-full max-w-xs space-y-6">
+            {/* Luna avatar */}
+            <div className="flex flex-col items-center gap-4">
+              <div style={{ transform: 'scale(1.4)', transformOrigin: 'center' }}>
+                <LunaAvatar status="idle" />
+              </div>
+              <div className="text-center space-y-1">
+                <h1 className="text-2xl font-bold text-white flex items-center justify-center gap-2">
+                  Hi! I'm Luna <Heart className="w-5 h-5 text-pink-500 fill-pink-500" />
+                </h1>
+                <p className="text-sm text-slate-400 leading-relaxed">
+                  Enter your email to access your personalized learning journey.
+                </p>
+              </div>
+            </div>
+
+            {/* Form */}
+            <div className="space-y-3">
+              <input
+                type="email"
+                value={emailInput}
+                onChange={e => setEmailInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleEmailSubmit()}
+                placeholder="your@email.com"
+                autoFocus
+                className="w-full px-4 py-3 rounded-xl text-sm border text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500/60 transition-colors"
+                style={{ background: 'var(--t-card)', borderColor: 'rgba(100,116,139,0.3)' }}
+              />
+              <button
+                onClick={() => handleEmailSubmit()}
+                disabled={!emailInput.includes('@') || isLoadingProfile}
+                className="w-full py-3.5 rounded-full font-semibold text-sm bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-40 text-white flex items-center justify-center gap-2 transition-all">
+                {isLoadingProfile ? (
+                  <span className="inline-block w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                ) : (
+                  <Phone className="w-4 h-4" />
+                )}
+                {isLoadingProfile ? 'Loading...' : 'Start Learning'}
+              </button>
+            </div>
+
+            <p className="text-[10px] text-slate-600 text-center">
+              Your progress is saved automatically. No password needed.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ── Ringing overlay ── */}
       {isRinging && (
@@ -1331,6 +1451,27 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
           <span className="text-sm font-bold tracking-widest text-slate-300 uppercase">MentorStudy</span>
         </div>
         <div className="flex items-center gap-2">
+          {/* Student profile chip */}
+          {studentProfile && (
+            <div className="flex items-center gap-1.5 bg-slate-800/80 px-2.5 py-1.5 rounded-xl border border-slate-700/60">
+              <div className="w-5 h-5 rounded-full bg-indigo-600 flex items-center justify-center shrink-0">
+                <span className="text-[9px] font-bold text-white">{studentProfile.email[0].toUpperCase()}</span>
+              </div>
+              <span className="text-xs text-slate-300 font-medium hidden sm:block max-w-[80px] truncate">
+                {studentProfile.email.split('@')[0]}
+              </span>
+              {learningContext?.passport && (
+                <span className="text-[9px] font-bold text-indigo-400 hidden sm:block">
+                  {learningContext.passport.current_level}
+                </span>
+              )}
+              <button onClick={handleSignOut} title="Switch account"
+                className="text-slate-600 hover:text-rose-400 transition-colors ml-0.5">
+                <LogOut className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+
           <div className="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/60">
             <Globe className="w-3.5 h-3.5 text-indigo-400" />
             <select
@@ -1505,7 +1646,7 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
 
           </div>
           <div className="max-w-4xl mx-auto mt-3 pt-3 border-t border-slate-700/30 flex justify-end">
-            <span className="text-[10px] text-slate-600 font-mono">v1.1.8</span>
+            <span className="text-[10px] text-slate-600 font-mono">v1.2.0</span>
           </div>
 
           {/* Mobile done button */}
