@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Phone, PhoneOff, Sparkles, MessageSquare, Heart, Globe, BookOpen, X, Mic, MicOff, ChevronUp, Volume2, User, Settings, FileText, CheckCircle2, Copy, LogOut } from 'lucide-react';
 import {
   getOrCreateProfile, loadLearningContext, saveSessionData, parseReportScores,
-  buildLearningContextBlock,
+  buildLearningContextBlock, isSupabaseConfigured,
   type StudentProfile, type LearningContext,
 } from './supabase';
 
@@ -355,8 +355,9 @@ export default function App() {
   // Keep context ref in sync
   useEffect(() => { learningContextRef.current = learningContext; }, [learningContext]);
 
-  // Auto-login from localStorage on mount
+  // Auto-login from localStorage on mount (only when Supabase is configured)
   useEffect(() => {
+    if (!isSupabaseConfigured) return; // Skip identity if no DB
     const saved = localStorage.getItem('mentor_email');
     if (saved) {
       handleEmailSubmit(saved);

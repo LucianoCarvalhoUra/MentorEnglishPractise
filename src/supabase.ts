@@ -1,9 +1,13 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+export const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+
+export const supabase: SupabaseClient | null = isSupabaseConfigured
+  ? createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!)
+  : null;
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -82,6 +86,7 @@ export interface SessionScores {
 // ── Profile ────────────────────────────────────────────────────────────────────
 
 export async function getOrCreateProfile(email: string): Promise<StudentProfile> {
+  if (!supabase) throw new Error('Supabase not configured');
   const normalizedEmail = email.toLowerCase().trim();
 
   const { data: existing } = await supabase
@@ -108,6 +113,7 @@ export async function getOrCreateProfile(email: string): Promise<StudentProfile>
 // ── Learning Context ───────────────────────────────────────────────────────────
 
 export async function loadLearningContext(studentId: string): Promise<LearningContext | null> {
+  if (!supabase) return null;
   try {
     const [profileRes, passportRes, sessionsRes, gapsRes, strengthsRes] = await Promise.all([
       supabase.from('student_profiles').select('*').eq('id', studentId).single(),
@@ -137,6 +143,7 @@ export async function loadLearningContext(studentId: string): Promise<LearningCo
 // ── Session Save ───────────────────────────────────────────────────────────────
 
 export async function saveSessionData(studentId: string, scores: SessionScores): Promise<void> {
+  if (!supabase) return;
   // 1. Save session record
   await supabase.from('learning_sessions').insert({
     student_id: studentId,
