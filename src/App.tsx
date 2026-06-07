@@ -1443,7 +1443,7 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
 
           </div>
           <div className="max-w-4xl mx-auto mt-3 pt-3 border-t border-slate-700/30 flex justify-end">
-            <span className="text-[10px] text-slate-600 font-mono">v1.1.5</span>
+            <span className="text-[10px] text-slate-600 font-mono">v1.1.6</span>
           </div>
         </div>
       )}
@@ -1505,7 +1505,7 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
                 </div>
               </div>
             </div>
-          ) : (
+          ) : sessionScore === null ? (
             /* ── Call screen style card ── */
             <div className="flex-1 min-h-0 rounded-2xl border border-slate-700/40 flex flex-col overflow-hidden" style={{ background: 'var(--t-card)' }}>
               {/* Top label */}
@@ -1555,7 +1555,7 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
                 </button>
               </div>
             </div>
-          )}
+          ) : null}
 
           {/* ── Previous Report import (idle only) ── */}
           {!isCallActive && (
