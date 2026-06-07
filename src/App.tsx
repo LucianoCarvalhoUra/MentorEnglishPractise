@@ -1443,7 +1443,7 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
 
           </div>
           <div className="max-w-4xl mx-auto mt-3 pt-3 border-t border-slate-700/30 flex justify-end">
-            <span className="text-[10px] text-slate-600 font-mono">v1.1.4</span>
+            <span className="text-[10px] text-slate-600 font-mono">v1.1.5</span>
           </div>
         </div>
       )}
@@ -1684,6 +1684,13 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
                   </div>
                 </div>
               )}
+
+              <button
+                onClick={startCall}
+                className="w-full py-2.5 rounded-full font-semibold text-sm bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white flex items-center justify-center gap-2 transition-all">
+                <Phone className="w-4 h-4" />
+                New Session
+              </button>
             </div>
           )}
 
