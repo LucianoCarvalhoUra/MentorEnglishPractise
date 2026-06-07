@@ -1353,8 +1353,12 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
             </div>
 
             {(() => {
+              const femaleKw = ['zira', 'samantha', 'victoria', 'allison', 'susan', 'aria', 'luna',
+                'jenny', 'michelle', 'female', 'woman', 'fiona', 'moira', 'karen', 'tessa',
+                'eva', 'maria', 'helena', 'hazel', 'linda', 'neerja', 'heera', 'cortana'];
               const langVoices = availableVoices.filter(v =>
-                v.lang === targetLanguage || v.lang.startsWith(targetLanguage.split('-')[0])
+                (v.lang === targetLanguage || v.lang.startsWith(targetLanguage.split('-')[0])) &&
+                femaleKw.some(k => v.name.toLowerCase().includes(k))
               ).slice(0, 7);
               const shortName = (name: string) => name.replace(/\s*\(.*?\)\s*/g, '').replace('Microsoft ', '').replace('Google ', '').trim().split(' ').slice(0, 2).join(' ');
               return langVoices.length > 0 ? (
@@ -1419,7 +1423,7 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
 
           </div>
           <div className="max-w-4xl mx-auto mt-3 pt-3 border-t border-slate-700/30 flex justify-end">
-            <span className="text-[10px] text-slate-600 font-mono">v1.1.0</span>
+            <span className="text-[10px] text-slate-600 font-mono">v1.1.1</span>
           </div>
         </div>
       )}
