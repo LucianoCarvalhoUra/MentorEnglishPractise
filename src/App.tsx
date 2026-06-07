@@ -1216,9 +1216,10 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
   };
 
   // Called by the End button and any UI-triggered termination.
-  // Generates the performance report if the session has history; otherwise ends immediately.
+  // Generates the performance report only if the user actually spoke; otherwise ends immediately.
   const handleEndCall = () => {
-    if (historyRef.current.length > 0) {
+    const hasUserMessages = historyRef.current.some(m => m.sender === 'user');
+    if (hasUserMessages) {
       generateSessionReport();
     } else {
       endCall();
@@ -1442,7 +1443,7 @@ Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', 
 
           </div>
           <div className="max-w-4xl mx-auto mt-3 pt-3 border-t border-slate-700/30 flex justify-end">
-            <span className="text-[10px] text-slate-600 font-mono">v1.1.3</span>
+            <span className="text-[10px] text-slate-600 font-mono">v1.1.4</span>
           </div>
         </div>
       )}
