@@ -1075,19 +1075,6 @@ Stats: ${userMsgs} student messages in this session.`;
           style={{ background: THEMES[settings.theme].panelGlass }}>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
 
-            <div className="col-span-2 md:col-span-1">
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Correction level</p>
-              <div className="flex gap-1.5">
-                {(['off', 'gentle', 'strict'] as const).map(l => (
-                  <button key={l} onClick={() => setSettings(s => ({ ...s, correctionLevel: l }))}
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                      settings.correctionLevel === l ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                    }`}>
-                    {l === 'off' ? 'Off' : l === 'gentle' ? 'Gentle' : 'Strict'}
-                  </button>
-                ))}
-              </div>
-            </div>
 
 
             <div>
