@@ -1058,114 +1058,99 @@ Good examples:
     const hist = historyRef.current;
     const userMsgs = hist.filter(m => m.sender === 'user').length;
 
-    const reportSystemPrompt = `You are an expert English conversation coach for Brazilian students. Generate a warm, evidence-based session report using ONLY real examples from this conversation. Every score must be explained with at least one quote. Never be generic.
+    const reportSystemPrompt = `You are an expert English conversation coach for Brazilian students. Generate a professional, visual, and actionable session performance dashboard. Use ONLY real examples from this conversation. Be specific — never generic. Keep every section concise.
 
-Write the entire report in English. Structure it EXACTLY as follows:
-
-# Conversation Performance Score
-
-## Communication Score
-Score: X/10
-Positive Evidence:
-Student: "[exact quote]"
-Reason: [why this demonstrates effective communication]
-Improvement Opportunity: [only if score < 9; one concrete suggestion]
-
-## Vocabulary Score
-Score: X/10
-Positive Evidence:
-Student: "[exact quote]"
-Reason: [why this word/phrase choice was strong]
-Improvement Opportunity: [only if applicable; suggest richer vocabulary with example]
-
-## Grammar Score
-Score: X/10
-Positive Evidence:
-Student: "[sentence that was mostly correct]"
-Reason: [brief note on what was right]
-Improvement Opportunities: [required if score < 8; for each error:]
-  Student: "[original sentence]"
-  Correction: "[corrected sentence]"
-  Explanation: [short rule, 1 sentence]
-
-## Verb Tense Score
-Score: X/10
-Positive Evidence:
-Student: "[exact quote]"
-Reason: [tense used correctly — name the tense]
-Improvement Opportunities: [required if score < 8]
-  Student: "[original]"
-  Suggested: "[corrected]"
-  Reason: [which tense should be used and why]
-
-## Fluency Score
-Score: X/10
-Positive Evidence:
-- [observation about how naturally the student kept the conversation going]
-- [observation about response relevance or expansion]
-Improvement Opportunity: [only if needed]
-
-## Confidence Score
-Score: X/10
-Positive Evidence:
-- [observation about participation willingness]
-- [observation about engagement or answer quality]
+Write the entire report in English. Use this EXACT structure:
 
 ---
+# 📊 Session Performance Dashboard
 
-# Overall Conversation Score
-Average the 6 scores, multiply by 10, round to nearest whole number.
+## Overall Performance
 Overall Score: XX/100
-Level: [Excellent 90-100 | Very Good 80-89 | Good 70-79 | Developing 60-69 | Needs More Practice <60]
+[Calculate: average of 7 skill scores × 10, rounded]
+
+Performance Level:
+🟢 Excellent (90-100) | 🔵 Very Good (80-89) | 🟡 Good (70-79) | 🟠 Developing (60-69) | 🔴 Needs More Practice (<60)
+
+Level: [emoji + level name]
 
 ---
-
-# What You Did Well
-Minimum 3 items. Use real examples. Always include at least 3, even with mistakes.
-✅ [specific strength with example]
-✅ [specific strength]
-✅ [specific strength]
-
-# What You Can Improve
-Maximum 3 items. Most impactful only.
-📌 [area] — [actionable tip]
-📌 [area] — [tip]
+## Skill Breakdown
+Communication ........ X/10
+Vocabulary ........... X/10
+Grammar .............. X/10
+Verb Tenses .......... X/10
+Fluency .............. X/10
+Confidence ........... X/10
+Pronunciation ........ X/10
 
 ---
+## 🚨 Priority Attention Areas
+Identify the 3 highest-priority skills to reinforce, ordered by urgency. For each:
 
-# Best Moment of the Conversation
-"[exact or close paraphrase of their best sentence/idea]"
-[One sentence explaining why it stood out]
+🚨 Priority #1 — [Skill Name]
+Reason: [one specific observation from this conversation]
+Impact: [one sentence on how improving this raises their level]
+
+⚠️ Priority #2 — [Skill Name]
+Reason: [specific observation]
+Impact: [one sentence]
+
+📌 Priority #3 — [Skill Name]
+Reason: [specific observation]
+Impact: [one sentence]
 
 ---
-
-# Priority Study Topic
-Next Focus: [one topic only]
-Reason: [one sentence based on what you observed]
-Estimated Impact: [how improving this topic would increase their level — 1–2 sentences]
+## ✅ Biggest Wins
+List 3–5 genuine achievements observed in this session. Always include at least 3.
+✅ [specific win — cite real example or behavior]
+✅ [specific win]
+✅ [specific win]
 
 ---
+## 🔧 Key Corrections
+Maximum 5. Only corrections that significantly impact communication.
 
-# Motivation Summary
-2–3 warm sentences. Recognize real progress, name one specific thing to feel proud of, encourage the next session.
-Never end with criticism only.
+Student Said: "[original]"
+Better Version: "[corrected]"
+Why: [one-sentence rule]
+Priority: High / Medium / Low
 
-Stats: ${userMsgs} student messages in this session.
-${previousReport.trim() ? `
-## Progress Since Previous Session
-A previous session report was provided. Compare this session's performance against it.
-Use ONLY evidence from this conversation — never invent improvements.
+[Repeat for each correction, blank line between each]
 
-Improved Skills:
-• [skills that showed clearer/better performance than the previous report — cite specific examples]
+---
+## 💡 Learning Insights
+4–6 short pattern observations from this conversation.
+✓ [insight — e.g. "Communication is stronger than grammar"]
+✓ [insight]
+✓ [insight]
+✓ [insight]
 
-Stable Skills:
-• [skills that performed similarly to before]
+---
+## 🎯 Next Session Focus
+Next Focus: [ONE topic only]
+Why: [one sentence — based on what you observed]
+Suggested Themes to Practice It:
+1. [conversation topic that naturally reinforces the skill]
+2. [conversation topic]
+3. [conversation topic]
 
-Skills Still Requiring Practice:
-• [areas still needing work, with examples from this session]
+---
+${previousReport.trim() ? `## 📈 Progress Tracker
+Compare this session against the previous report provided. Use only evidence from this conversation.
+⬆ Improved: [areas with clear improvement — cite examples]
+➡ Stable: [areas performing similarly]
+⬇ Still Needs Attention: [areas still requiring practice, with examples]
 
-Keep the comparison qualitative and specific. Do not compare raw scores directly.` : ''}`;
+---
+` : ''}## 🌟 Coach's Summary
+4 sentences maximum:
+1. Main achievement from this session.
+2. Main learning opportunity identified.
+3. Encouragement — something genuine and specific.
+4. One clear next step.
+
+Stats: ${userMsgs} student messages · ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
 
     const messages: LLMMessage[] = [
       ...hist.map(m => ({ role: m.sender === 'user' ? 'user' as const : 'assistant' as const, content: m.text })),
@@ -1361,7 +1346,7 @@ Keep the comparison qualitative and specific. Do not compare raw scores directly
 
           </div>
           <div className="max-w-4xl mx-auto mt-3 pt-3 border-t border-slate-700/30 flex justify-end">
-            <span className="text-[10px] text-slate-600 font-mono">v1.0.7</span>
+            <span className="text-[10px] text-slate-600 font-mono">v1.0.8</span>
           </div>
         </div>
       )}
@@ -1706,18 +1691,68 @@ Keep the comparison qualitative and specific. Do not compare raw scores directly
                           </div>
                           <div className="space-y-1">
                             {msg.text.split('\n').map((line, i) => {
-                              if (!line.trim()) return <div key={i} className="h-2" />;
-                              if (/^[📊❌✅📚🎯💬🏆🌟]/.test(line)) return (
-                                <p key={i} className="text-sm font-bold text-indigo-300 mt-3 mb-0.5">{line}</p>
+                              if (!line.trim()) return <div key={i} className="h-1.5" />;
+                              // Horizontal rule
+                              if (/^---+$/.test(line.trim())) return (
+                                <hr key={i} className="border-indigo-800/40 my-2" />
                               );
-                              if (/^•/.test(line)) return (
+                              // H1 section headers (# prefix or emoji-led headings)
+                              if (/^#\s/.test(line)) return (
+                                <p key={i} className="text-sm font-bold text-indigo-300 mt-4 mb-1">{line.replace(/^#+\s*/, '')}</p>
+                              );
+                              // H2 sub-headers
+                              if (/^##\s/.test(line)) return (
+                                <p key={i} className="text-xs font-bold text-slate-300 uppercase tracking-wider mt-3 mb-1">{line.replace(/^#+\s*/, '')}</p>
+                              );
+                              // Priority badges 🚨 ⚠️ 📌
+                              if (/^[🚨⚠️📌]/.test(line)) return (
+                                <p key={i} className="text-sm font-bold text-amber-300 mt-3 mb-0.5">{line}</p>
+                              );
+                              // Emoji section headers
+                              if (/^[📊🔧💡🎯📈🌟✅💬🏆]/.test(line)) return (
+                                <p key={i} className="text-sm font-bold text-indigo-300 mt-4 mb-1">{line}</p>
+                              );
+                              // Wins ✅
+                              if (/^✅/.test(line)) return (
+                                <p key={i} className="text-xs text-emerald-300 leading-relaxed pl-1">{line}</p>
+                              );
+                              // Insights ✓
+                              if (/^✓/.test(line)) return (
+                                <p key={i} className="text-xs text-cyan-300/80 leading-relaxed pl-1">{line}</p>
+                              );
+                              // Progress ⬆ ➡ ⬇
+                              if (/^[⬆➡⬇]/.test(line)) return (
+                                <p key={i} className="text-xs text-slate-300 leading-relaxed pl-1 font-medium">{line}</p>
+                              );
+                              // Dotted skill scores (e.g. "Communication ........ X/10")
+                              if (/\.{4,}/.test(line)) return (
+                                <p key={i} className="text-xs font-mono text-slate-300 leading-relaxed">{line}</p>
+                              );
+                              // Bullet points
+                              if (/^[•·]/.test(line)) return (
                                 <p key={i} className="text-xs text-slate-300 leading-relaxed pl-3">{line}</p>
                               );
+                              // Numbered list
                               if (/^\d+\./.test(line)) return (
                                 <p key={i} className="text-xs text-slate-300 leading-relaxed pl-3">{line}</p>
                               );
-                              if (/^(Original|Correct|Rule|Instead of|Say|Level|Reasoning|Strong areas|Needs improvement):/.test(line)) return (
-                                <p key={i} className="text-xs text-slate-400 leading-relaxed"><span className="text-slate-500 font-semibold">{line.split(':')[0]}:</span>{line.slice(line.indexOf(':') + 1)}</p>
+                              // Label: value pairs
+                              if (/^(Student Said|Better Version|Why|Priority|Next Focus|Reason|Impact|Level|Stats):/.test(line)) {
+                                const colon = line.indexOf(':');
+                                return (
+                                  <p key={i} className="text-xs text-slate-400 leading-relaxed">
+                                    <span className="text-slate-400 font-semibold">{line.slice(0, colon)}:</span>
+                                    <span className="text-slate-300">{line.slice(colon + 1)}</span>
+                                  </p>
+                                );
+                              }
+                              // Overall Score line
+                              if (/^Overall Score:/.test(line)) return (
+                                <p key={i} className="text-base font-bold text-white mt-1">{line}</p>
+                              );
+                              // Performance Level emoji line
+                              if (/^[🟢🔵🟡🟠🔴]/.test(line)) return (
+                                <p key={i} className="text-sm font-semibold text-slate-200">{line}</p>
                               );
                               return <p key={i} className="text-xs text-slate-400 leading-relaxed">{line}</p>;
                             })}
