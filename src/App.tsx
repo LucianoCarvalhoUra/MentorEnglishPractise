@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { Phone, PhoneOff, Sparkles, MessageSquare, Heart, Globe, BookOpen, X, Mic, MicOff, ChevronUp, Volume2, User, Settings } from 'lucide-react';
+import { Phone, PhoneOff, Sparkles, MessageSquare, Heart, Globe, BookOpen, X, Mic, MicOff, ChevronUp, Volume2, User, Settings, FileText, CheckCircle2 } from 'lucide-react';
 
 // Provider cascade: Groq (fastest, free) → OpenRouter (free) → Gemini (fallback)
 const GROQ_KEY: string | undefined = import.meta.env.VITE_GROQ_API_KEY;
@@ -302,6 +302,8 @@ export default function App() {
     catch { return DEFAULT_SETTINGS; }
   });
   const [showSettings, setShowSettings] = useState(false);
+  const [previousReport, setPreviousReport] = useState('');
+  const [showReportInput, setShowReportInput] = useState(false);
 
   // Study system
   const [corrections, setCorrections] = useState<Correction[]>([]);
@@ -648,10 +650,35 @@ Even when no mistakes exist, find something positive to observe.
 Never combine CORRECTION + POSITIVE in the same turn.`
         : '';
 
+      const isFirstTurn = historyRef.current.filter(m => m.sender === 'luna').length === 0;
+
+      const previousReportBlock = previousReport.trim()
+        ? `
+# Previous Session Report (Adaptive Coaching Mode)
+The student has provided a previous session report. Analyze it and adapt your entire conversation strategy.
+
+PREVIOUS REPORT:
+${previousReport.trim()}
+
+ADAPTIVE STRATEGY:
+• Identify the lowest scoring skills and naturally create practice opportunities for them
+• Use the recommended study topic as the primary conversation theme
+• Grammar/Verb Tense score below 8 → ask questions that naturally require those structures (past events, experiences, plans, hypotheticals)
+• Vocabulary score below 8 → weave richer vocabulary options into your responses naturally
+• Communication/Confidence score ≥ 8 → challenge with complex questions and encourage detailed elaboration
+• NEVER announce that you are testing grammar — practice must feel like natural conversation
+• PRIORITY ORDER: Recommended study topic → lowest score area → repeated grammar mistakes → weak verb tenses → vocabulary gaps
+${isFirstTurn ? `
+OPENING (this first message only): Start with exactly:
+"I reviewed your previous learning report and I'll adapt today's conversation to help you strengthen your English while keeping the discussion natural and enjoyable."
+Then immediately ask one engaging open-ended question related to the recommended study topic or weakest area.` : ''}`
+        : '';
+
       const systemPrompt = `
 # Identity
 You are Luna, a warm ${languageNames[targetLanguage]} conversation partner for Brazilian students. You feel like a real person to talk to — friendly, encouraging, genuinely interested.
 ${focusLine}
+${previousReportBlock}
 
 # Core rules
 - Always speak in ${languageNames[targetLanguage]}. Switch to Portuguese ONLY if the student explicitly asks.
@@ -1078,7 +1105,22 @@ Estimated Impact: [how improving this topic would increase their level — 1–2
 2–3 warm sentences. Recognize real progress, name one specific thing to feel proud of, encourage the next session.
 Never end with criticism only.
 
-Stats: ${userMsgs} student messages in this session.`;
+Stats: ${userMsgs} student messages in this session.
+${previousReport.trim() ? `
+## Progress Since Previous Session
+A previous session report was provided. Compare this session's performance against it.
+Use ONLY evidence from this conversation — never invent improvements.
+
+Improved Skills:
+• [skills that showed clearer/better performance than the previous report — cite specific examples]
+
+Stable Skills:
+• [skills that performed similarly to before]
+
+Skills Still Requiring Practice:
+• [areas still needing work, with examples from this session]
+
+Keep the comparison qualitative and specific. Do not compare raw scores directly.` : ''}`;
 
     const messages: LLMMessage[] = [
       ...hist.map(m => ({ role: m.sender === 'user' ? 'user' as const : 'assistant' as const, content: m.text })),
@@ -1274,7 +1316,7 @@ Stats: ${userMsgs} student messages in this session.`;
 
           </div>
           <div className="max-w-4xl mx-auto mt-3 pt-3 border-t border-slate-700/30 flex justify-end">
-            <span className="text-[10px] text-slate-600 font-mono">v1.0.3</span>
+            <span className="text-[10px] text-slate-600 font-mono">v1.0.4</span>
           </div>
         </div>
       )}
@@ -1385,6 +1427,52 @@ Stats: ${userMsgs} student messages in this session.`;
                   {focusTopic ? `Practice · ${focusTopic}` : 'Start Session'}
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* ── Previous Report import (idle only) ── */}
+          {!isCallActive && (
+            <div className="shrink-0 border border-slate-700/50 rounded-2xl overflow-hidden" style={{ background: 'var(--t-card)' }}>
+              <button
+                onClick={() => setShowReportInput(v => !v)}
+                className="w-full flex items-center gap-2.5 px-4 py-3 hover:bg-white/5 transition-colors"
+              >
+                <FileText className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                <span className="flex-1 text-left text-xs font-semibold text-slate-400">
+                  Previous Report
+                </span>
+                {previousReport.trim()
+                  ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  : <span className="text-[10px] text-slate-600">optional</span>
+                }
+                <ChevronUp className={`w-3.5 h-3.5 text-slate-600 shrink-0 transition-transform ${showReportInput ? '' : 'rotate-180'}`} />
+              </button>
+
+              {showReportInput && (
+                <div className="px-4 pb-4 space-y-2">
+                  <textarea
+                    value={previousReport}
+                    onChange={e => setPreviousReport(e.target.value)}
+                    placeholder="Paste your previous session report here. Luna will adapt the conversation to your results."
+                    rows={6}
+                    className="w-full text-[11px] text-slate-300 placeholder-slate-600 bg-slate-900/60 border border-slate-700/40 rounded-xl p-3 resize-none focus:outline-none focus:border-indigo-500/50 leading-relaxed"
+                  />
+                  {previousReport.trim() && (
+                    <button
+                      onClick={() => setPreviousReport('')}
+                      className="text-[10px] text-rose-400/70 hover:text-rose-400 transition-colors"
+                    >
+                      Clear report
+                    </button>
+                  )}
+                  {previousReport.trim() && (
+                    <p className="text-[10px] text-emerald-400/70 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      Report loaded — Luna will personalize this session
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
